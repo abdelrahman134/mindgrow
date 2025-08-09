@@ -25,15 +25,23 @@ export function log(message: string, source = "express") {
 }
 
 export async function setupVite(app: Express, server: Server) {
-  const serverOptions = {
-    middlewareMode: true,
-    hmr: { server },
-    allowedHosts: true as const,
-  };
-
   const vite = await createViteServer({
-    ...viteConfig,
-    configFile: false,
+    configFile: path.resolve(__dirname, '../vite.config.ts'),
+    root: path.resolve(__dirname, '../client'),
+    server: {
+      middlewareMode: true,
+      hmr: { 
+        server,
+        host: 'localhost',
+        port: 3001
+      },
+      fs: {
+        strict: false,
+        allow: ['..']
+      }
+    },
+    appType: 'spa',
+    logLevel: 'info',
     customLogger: {
       ...viteLogger,
       error: (msg, options) => {
@@ -41,8 +49,6 @@ export async function setupVite(app: Express, server: Server) {
         process.exit(1);
       },
     },
-    server: serverOptions,
-    appType: "custom",
   });
 
   app.use(vite.middlewares);

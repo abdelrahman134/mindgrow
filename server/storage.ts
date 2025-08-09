@@ -25,7 +25,7 @@ import {
   type InsertButtonLink,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, like } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -92,11 +92,16 @@ export class DatabaseStorage implements IStorage {
 
   // Content management
   async getAllContentItems(): Promise<ContentItem[]> {
-    return await db.select().from(contentItems).orderBy(contentItems.page, contentItems.category, contentItems.key);
+    return await db.select().from(contentItems).orderBy(contentItems.key);
   }
 
   async getContentItemsByPage(page: string): Promise<ContentItem[]> {
-    return await db.select().from(contentItems).where(eq(contentItems.page, page)).orderBy(contentItems.category, contentItems.key);
+    // Filter content items where the key starts with the page name
+    return await db
+      .select()
+      .from(contentItems)
+      .where(like(contentItems.key, `${page}.%`))
+      .orderBy(contentItems.key);
   }
 
   async createContentItem(item: InsertContentItem): Promise<ContentItem> {

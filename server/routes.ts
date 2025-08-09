@@ -823,6 +823,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create HTTP server and return it
   const httpServer = createServer(app);
+  console.log('[registerRoutes] Routes initialized successfully');
   return httpServer;
 }
