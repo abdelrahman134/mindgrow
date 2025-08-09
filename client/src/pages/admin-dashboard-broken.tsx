@@ -194,13 +194,28 @@ function HomePageContentManager({ content }: { content: ContentItem[] }) {
 
   const updateContentMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<ContentItem> }) => {
+      // Ensure we're not double-stringifying by checking if data is already a string
+      let requestBody = data;
+      if (typeof data === 'string') {
+        try {
+          // If it's already a string, parse it first to avoid double stringification
+          requestBody = JSON.parse(data);
+        } catch (e) {
+          console.error('Failed to parse data:', e);
+          throw new Error('Invalid data format');
+        }
+      }
+      
+      console.log('Sending PATCH request with data:', requestBody);
+      
       const response = await fetch(`/api/admin/content/${id}`, {
         method: 'PATCH',
         headers: { 
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
         credentials: 'include',
-        body: JSON.stringify(data),
+        body: JSON.stringify(requestBody),
       });
       
       if (!response.ok) {
@@ -1238,5 +1253,6 @@ export default function AdminDashboard() {
         </Tabs>
       </div>
     </div>
+
   );
 }

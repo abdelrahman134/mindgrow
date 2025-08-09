@@ -525,25 +525,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/admin/content/:id', async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      if (isNaN(id)) {
-        return res.status(400).json({ message: "Invalid content ID" });
-      }
-      
-      console.log(`Updating content ${id} with data:`, req.body);
-      const item = await storage.updateContentItem(id, req.body);
-      console.log('Content updated successfully:', item);
-      res.json(item);
-    } catch (error) {
-      console.error("Error updating content item:", error);
-      res.status(500).json({ 
-        message: "Failed to update content",
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
-  });
 
   app.delete('/api/admin/content/:id', async (req, res) => {
     try {
@@ -617,22 +598,177 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/admin/team/:id', async (req, res) => {
+  // Update content item by ID
+  app.patch('/api/admin/content/:id', async (req, res) => {
+    console.log('=== PATCH /api/admin/content/:id ===');
+    
+    // Parse and validate ID first
+    const id = parseInt(req.params.id);
+    if (isNaN(id) || id <= 0) {
+      console.error('Invalid content ID:', req.params.id);
+      return res.status(400).json({ 
+        success: false,
+        message: "Invalid content ID",
+        details: { id: req.params.id }
+      });
+    }
+
+    // Log request details for debugging
+    console.log('Request headers:', JSON.stringify(req.headers, null, 2));
+    
+    // Get the raw body that was captured by our middleware
+    const rawBody = (req as any).rawBody;
+    console.log('Raw body type:', typeof rawBody);
+    console.log('Raw body:', rawBody);
+    console.log('Parsed body type:', typeof req.body);
+    console.log('Parsed body:', JSON.stringify(req.body, null, 2));
+    
     try {
-      const id = parseInt(req.params.id);
-      if (isNaN(id)) {
-        return res.status(400).json({ message: "Invalid team member ID" });
+      // Initialize updateData as an empty object
+      let updateData: Record<string, any> = {};
+      
+      // Helper function to safely parse JSON, including double-stringified JSON
+      const safeJsonParse = (str: string, depth = 0): any => {
+        if (depth > 2) return str; // Prevent infinite recursion
+        
+        // If input is not a string, return as is
+        if (typeof str !== 'string') return str;
+        
+        try {
+          // First try to parse as JSON
+          const parsed = JSON.parse(str);
+          // If the parsed result is a string, it might be double-stringified
+          if (typeof parsed === 'string') {
+            return safeJsonParse(parsed, depth + 1);
+          }
+          return parsed;
+        } catch (e) {
+          // If parsing fails, try to clean up the string and try again
+          if (depth === 0) {
+            let cleanString = str.trim();
+            // Remove surrounding quotes if present
+            if (cleanString.startsWith('"') && cleanString.endsWith('"')) {
+              cleanString = cleanString.slice(1, -1);
+              // Unescape any escaped quotes
+              cleanString = cleanString.replace(/\\"/g, '"');
+              const result = safeJsonParse(cleanString, depth + 1);
+              if (result !== cleanString) return result; // Only return if we made progress
+            }
+          }
+          console.error('JSON parse error at depth', depth, ':', e);
+          return str; // Return original string if we can't parse it
+        }
+      };
+      
+      // Handle different body formats
+      if (req.body && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
+        // Case 1: Body is already parsed by express.json()
+        console.log('Using parsed request body from express.json()');
+        updateData = { ...req.body };
+      } else if (typeof rawBody === 'string' && rawBody.trim() !== '') {
+        // Case 2: Raw body is a string that needs parsing
+        console.log('Processing raw body as string');
+        const parsed = safeJsonParse(rawBody);
+        if (parsed && typeof parsed === 'object') {
+          updateData = parsed;
+        } else {
+          // Try one more time with direct parsing
+          try {
+            const directParse = JSON.parse(rawBody);
+            if (directParse && typeof directParse === 'object') {
+              updateData = directParse;
+            } else {
+              throw new Error('Parsed value is not an object');
+            }
+          } catch (parseError) {
+            console.error('Failed to parse request body as JSON:', parseError);
+            return res.status(400).json({
+              success: false,
+              message: 'Invalid JSON in request body',
+              details: {
+                rawBody: rawBody.substring(0, 200) + (rawBody.length > 200 ? '...' : ''),
+                parseError: parseError instanceof Error ? parseError.message : 'Unknown parsing error'
+              }
+            });
+          }
+        }
+      } else if (typeof rawBody === 'object' && rawBody !== null) {
+        // Case 3: Raw body is already an object
+        console.log('Using raw body as object');
+        updateData = { ...rawBody };
       }
       
-      console.log(`Updating team member ${id}:`, req.body);
-      const member = await storage.updateTeamMember(id, req.body);
-      console.log('Team member updated:', member);
-      res.json(member);
+      // If we still don't have data, return an error
+      if (Object.keys(updateData).length === 0) {
+        console.error('No valid data found in request body');
+        return res.status(400).json({
+          success: false,
+          message: 'No valid data found in request body',
+          details: {
+            rawBodyType: typeof rawBody,
+            parsedBodyType: req.body ? typeof req.body : 'undefined',
+            rawBodySample: typeof rawBody === 'string' ? rawBody.substring(0, 200) : 'Not a string'
+          }
+        });
+      }
+      
+      console.log('Processed update data:', JSON.stringify(updateData, null, 2));
+      
+      try {
+        // Ensure we only update valid fields
+        const validFields = ['key', 'type', 'valueAr', 'valueEn', 'category', 'page', 'description', 'icon'];
+        const filteredUpdateData = Object.keys(updateData)
+          .filter(key => validFields.includes(key))
+          .reduce((obj, key) => {
+            if (updateData[key] !== undefined) {
+              obj[key] = updateData[key];
+            }
+            return obj;
+          }, {} as Record<string, any>);
+        
+        if (Object.keys(filteredUpdateData).length === 0) {
+          return res.status(400).json({
+            success: false,
+            message: 'No valid fields to update',
+            validFields,
+            receivedFields: Object.keys(updateData)
+          });
+        }
+        
+        console.log('Filtered update data:', filteredUpdateData);
+        
+        // Perform the update
+        const updatedItem = await storage.updateContentItem(id, filteredUpdateData);
+        
+        if (!updatedItem) {
+          console.error('Update operation returned null/undefined');
+          return res.status(404).json({ 
+            success: false,
+            message: 'Content item not found or update failed' 
+          });
+        }
+        
+        console.log('Successfully updated content item:', updatedItem);
+        return res.json({
+          success: true,
+          data: updatedItem
+        });
+        
+      } catch (storageError) {
+        console.error('Storage error during update:', storageError);
+        const errorMessage = storageError instanceof Error ? storageError.message : 'Unknown error during update';
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to update content item',
+          error: errorMessage
+        });
+      }
     } catch (error) {
-      console.error("Error updating team member:", error);
+      console.error("Error updating content item:", error);
       res.status(500).json({ 
-        message: "Failed to update team member",
-        error: error instanceof Error ? error.message : 'Unknown error'
+        message: "Failed to update content item",
+        error: error instanceof Error ? error.message : 'Unknown error',
+        details: error instanceof Error ? error.stack : undefined
       });
     }
   });

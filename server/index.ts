@@ -1,10 +1,78 @@
-import express, { type Request, Response, NextFunction } from "express";
+import express, { type Request, Response, NextFunction, RequestHandler } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import 'dotenv/config';
 
 const app = express();
-app.use(express.json());
+
+// Raw body logging middleware (must be before bodyParser)
+app.use((req, res, next) => {
+  const chunks: Buffer[] = [];
+  
+  // Only process if there's a body
+  if (req.method === 'GET' || req.method === 'HEAD') {
+    return next();
+  }
+  
+  // Capture request body chunks
+  req.on('data', (chunk: Buffer) => chunks.push(chunk));
+  
+  // Log raw request body before JSON parsing
+  req.on('end', () => {
+    if (chunks.length > 0) {
+      try {
+        const rawBody = Buffer.concat(chunks).toString('utf8');
+        console.log('=== RAW REQUEST BODY ===');
+        console.log(rawBody);
+        console.log('========================');
+        (req as any).rawBody = rawBody;
+      } catch (error) {
+        console.error('Error processing raw body:', error);
+      }
+    }
+  });
+  
+  // Continue processing
+  next();
+});
+
+// Custom JSON parser to handle double-stringified JSON
+app.use((req, res, next) => {
+  if (req.method === 'GET' || req.method === 'HEAD' || !req.is('application/json')) {
+    return next();
+  }
+
+  let data = '';
+  req.on('data', chunk => {
+    data += chunk;
+  });
+
+  req.on('end', () => {
+    try {
+      // First, try to parse the raw data
+      req.body = JSON.parse(data);
+    } catch (e) {
+      try {
+        // If that fails, try parsing it as a string that might be double-encoded
+        if (data.startsWith('"') && data.endsWith('"')) {
+          const unescaped = data.slice(1, -1).replace(/\\"/g, '"');
+          req.body = JSON.parse(unescaped);
+        } else {
+          throw new Error('Invalid JSON');
+        }
+      } catch (parseError) {
+        console.error('Failed to parse JSON:', parseError);
+        return res.status(400).json({ 
+          message: 'Invalid JSON format',
+          error: parseError instanceof Error ? parseError.message : 'Unknown error'
+        });
+      }
+    }
+    next();
+  });
+});
+
+// Configure URL-encoded parser for form data
 app.use(express.urlencoded({ extended: false }));
 
 app.use((req, res, next) => {

@@ -110,12 +110,92 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateContentItem(id: number, item: Partial<InsertContentItem>): Promise<ContentItem> {
-    const [updated] = await db
-      .update(contentItems)
-      .set({ ...item, updatedAt: new Date() })
-      .where(eq(contentItems.id, id))
-      .returning();
-    return updated;
+    console.log(`[Storage] Updating content item ${id} with data:`, JSON.stringify(item, null, 2));
+    
+    // Input validation
+    if (!id || isNaN(id) || id <= 0) {
+      throw new Error('Invalid content item ID');
+    }
+
+    if (!item || typeof item !== 'object' || Object.keys(item).length === 0) {
+      throw new Error('No update data provided');
+    }
+
+    try {
+      // Only include valid content item fields that can be updated
+      const updateData: Record<string, any> = {
+        updatedAt: new Date()
+      };
+
+      // Define valid fields
+      const validFields = [
+        'key', 'type', 'valueAr', 'valueEn', 
+        'category', 'page', 'description', 'icon'
+      ] as const;
+
+      // Process and validate each field
+      let hasUpdates = false;
+      for (const [field, value] of Object.entries(item)) {
+        // Skip if field is not in the valid fields list
+        if (!validFields.includes(field as any)) {
+          console.warn(`[Storage] Ignoring invalid field for update: ${field}`);
+          continue;
+        }
+        
+        // Only include defined and non-null values
+        if (value !== undefined && value !== null) {
+          updateData[field] = value;
+          hasUpdates = true;
+        }
+      }
+
+      // Check if we have any valid fields to update
+      if (!hasUpdates) {
+        const errorMsg = 'No valid fields to update. Please provide at least one valid field to update.';
+        console.error(`[Storage] ${errorMsg}`, { receivedFields: Object.keys(item) });
+        throw new Error(errorMsg);
+      }
+
+      console.log('[Storage] Processed update data:', JSON.stringify(updateData, null, 2));
+
+      // First, check if the item exists
+      console.log(`[Storage] Checking if content item ${id} exists...`);
+      const existingItem = await db.query.contentItems.findFirst({
+        where: eq(contentItems.id, id)
+      });
+
+      if (!existingItem) {
+        const errorMsg = `Content item with ID ${id} not found`;
+        console.error(`[Storage] ${errorMsg}`);
+        throw new Error(errorMsg);
+      }
+
+      console.log(`[Storage] Existing item found:`, JSON.stringify(existingItem, null, 2));
+      
+      // Perform the update
+      console.log(`[Storage] Attempting to update content item ${id}...`);
+      const [updated] = await db
+        .update(contentItems)
+        .set(updateData)
+        .where(eq(contentItems.id, id))
+        .returning();
+      
+      if (!updated) {
+        const errorMsg = `Failed to update content item ${id}. No rows were affected.`;
+        console.error(`[Storage] ${errorMsg}`);
+        throw new Error(errorMsg);
+      }
+      
+      console.log(`[Storage] Successfully updated content item ${id}`, JSON.stringify(updated, null, 2));
+      return updated;
+    } catch (error) {
+      console.error(`[Storage] Error updating content item ${id}:`, error);
+      if (error instanceof Error) {
+        // Don't expose database errors to the client
+        throw new Error(`Failed to update content item: ${error.message}`);
+      }
+      throw new Error('An unknown error occurred while updating the content item');
+    }
   }
 
   async deleteContentItem(id: number): Promise<void> {
