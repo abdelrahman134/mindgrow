@@ -1,0 +1,293 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom Font for MindGrow Brand */
+.mindgrow-brand-font {
+  font-family: 'Comic Sans MS', cursive, sans-serif;
+  font-weight: bold;
+}
+
+:root {
+  --background: hsl(0, 0%, 100%);
+  --foreground: hsl(20, 14.3%, 4.1%);
+  --muted: hsl(60, 4.8%, 95.9%);
+  --muted-foreground: hsl(25, 5.3%, 44.7%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(20, 14.3%, 4.1%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(20, 14.3%, 4.1%);
+  --border: hsl(20, 5.9%, 90%);
+  --input: hsl(20, 5.9%, 90%);
+  --primary: hsl(207, 90%, 54%);
+  --primary-foreground: hsl(211, 100%, 99%);
+  --secondary: hsl(60, 4.8%, 95.9%);
+  --secondary-foreground: hsl(24, 9.8%, 10%);
+  --accent: hsl(60, 4.8%, 95.9%);
+  --accent-foreground: hsl(24, 9.8%, 10%);
+  --destructive: hsl(0, 84.2%, 60.2%);
+  --destructive-foreground: hsl(60, 9.1%, 97.8%);
+  --ring: hsl(20, 14.3%, 4.1%);
+  --radius: 0.5rem;
+  
+  /* MindGrow Brand Colors */
+  --mindgrow-primary: hsl(34, 96%, 56%); /* #fbac25 */
+  --mindgrow-green: hsl(142, 76%, 36%);
+  --mindgrow-blue: hsl(217, 91%, 60%);
+  --mindgrow-orange: hsl(34, 100%, 50%);
+  --mindgrow-yellow: hsl(45, 100%, 62%);
+  --mindgrow-pink: hsl(350, 100%, 71%);
+  --mindgrow-purple: hsl(280, 100%, 70%);
+}
+
+/* Custom Animations */
+@keyframes float-up-down {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}
+
+@keyframes float-left-right {
+  0%, 100% { transform: translateX(0px); }
+  50% { transform: translateX(15px); }
+}
+
+@keyframes scale-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+@keyframes rotate-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fade-in-out {
+  0%, 100% { opacity: 0.1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes diagonal-move {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(10px, -10px); }
+  75% { transform: translate(-10px, 10px); }
+}
+
+.animate-float-up { animation: float-up-down 4s ease-in-out infinite; }
+.animate-float-side { animation: float-left-right 6s ease-in-out infinite; }
+.animate-scale-pulse { animation: scale-pulse 3s ease-in-out infinite; }
+.animate-rotate-slow { animation: rotate-slow 15s linear infinite; }
+.animate-fade-pulse { animation: fade-in-out 5s ease-in-out infinite; }
+.animate-diagonal { animation: diagonal-move 8s ease-in-out infinite; }
+
+.dark {
+  --background: hsl(240, 10%, 3.9%);
+  --foreground: hsl(0, 0%, 98%);
+  --muted: hsl(240, 3.7%, 15.9%);
+  --muted-foreground: hsl(240, 5%, 64.9%);
+  --popover: hsl(240, 10%, 3.9%);
+  --popover-foreground: hsl(0, 0%, 98%);
+  --card: hsl(240, 10%, 3.9%);
+  --card-foreground: hsl(0, 0%, 98%);
+  --border: hsl(240, 3.7%, 15.9%);
+  --input: hsl(240, 3.7%, 15.9%);
+  --primary: hsl(207, 90%, 54%);
+  --primary-foreground: hsl(211, 100%, 99%);
+  --secondary: hsl(240, 3.7%, 15.9%);
+  --secondary-foreground: hsl(0, 0%, 98%);
+  --accent: hsl(240, 3.7%, 15.9%);
+  --accent-foreground: hsl(0, 0%, 98%);
+  --destructive: hsl(0, 62.8%, 30.6%);
+  --destructive-foreground: hsl(0, 0%, 98%);
+  --ring: hsl(240, 4.9%, 83.9%);
+  --radius: 0.5rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    font-family: 'Tajawal', 'Inter', 'Noto Sans Arabic', sans-serif;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer utilities {
+  .text-mindgrow-green {
+    color: var(--mindgrow-green);
+  }
+  
+  .text-mindgrow-blue {
+    color: var(--mindgrow-blue);
+  }
+  
+  .text-mindgrow-orange {
+    color: var(--mindgrow-orange);
+  }
+  
+  .text-mindgrow-yellow {
+    color: var(--mindgrow-yellow);
+  }
+  
+  .text-mindgrow-pink {
+    color: var(--mindgrow-pink);
+  }
+  
+  .bg-mindgrow-green {
+    background-color: var(--mindgrow-green);
+  }
+  
+  .bg-mindgrow-blue {
+    background-color: var(--mindgrow-blue);
+  }
+  
+  .bg-mindgrow-orange {
+    background-color: var(--mindgrow-orange);
+  }
+  
+  .bg-mindgrow-yellow {
+    background-color: var(--mindgrow-yellow);
+  }
+  
+  .bg-mindgrow-pink {
+    background-color: var(--mindgrow-pink);
+  }
+  
+  .border-mindgrow-blue {
+    border-color: var(--mindgrow-blue);
+  }
+  
+  .hover\:bg-mindgrow-blue:hover {
+    background-color: var(--mindgrow-blue);
+  }
+  
+  .hover\:bg-pink-600:hover {
+    background-color: hsl(327, 73%, 50%);
+  }
+  
+  .focus\:ring-mindgrow-blue:focus {
+    --tw-ring-color: var(--mindgrow-blue);
+  }
+  
+  .focus\:border-mindgrow-blue:focus {
+    border-color: var(--mindgrow-blue);
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.6s ease-out forwards;
+  }
+}
+
+@keyframes fadeIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(30px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(0, 0%, 95%);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--mindgrow-pink);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(327, 73%, 50%);
+}
+
+/* RTL Support */
+[dir="rtl"] {
+  text-align: right;
+}
+
+[dir="rtl"] .space-x-reverse > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+  margin-right: calc(1rem * var(--tw-space-x-reverse));
+  margin-left: calc(1rem * calc(1 - var(--tw-space-x-reverse)));
+}
+
+/* Waving animation */
+@keyframes waving {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(20deg); }
+  75% { transform: rotate(-20deg); }
+}
+
+.animate-waving {
+  animation: waving 1s ease-in-out infinite;
+}
+
+/* Task-specific animations */
+.animate-sweep {
+  animation: sweep 2s ease-in-out infinite;
+}
+
+.animate-reading {
+  animation: reading 3s ease-in-out infinite;
+}
+
+.animate-helping {
+  animation: helping 2.5s ease-in-out infinite;
+}
+
+.animate-cleaning {
+  animation: cleaning 2s ease-in-out infinite;
+}
+
+.animate-saving {
+  animation: saving 3s ease-in-out infinite;
+}
+
+.animate-shopping {
+  animation: shopping 2.5s ease-in-out infinite;
+}
+
+@keyframes sweep {
+  0%, 100% { transform: rotate(0deg) translateX(0); }
+  25% { transform: rotate(-15deg) translateX(-5px); }
+  75% { transform: rotate(15deg) translateX(5px); }
+}
+
+@keyframes reading {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(1.1) rotate(5deg); }
+}
+
+@keyframes helping {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-5px) scale(1.05); }
+}
+
+@keyframes cleaning {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(-10deg) scale(1.1); }
+  75% { transform: rotate(10deg) scale(1.1); }
+}
+
+@keyframes saving {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+@keyframes shopping {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  25% { transform: translateX(-3px) rotate(-5deg); }
+  75% { transform: translateX(3px) rotate(5deg); }
+}
