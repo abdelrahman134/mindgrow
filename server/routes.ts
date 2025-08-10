@@ -1,324 +1,4 @@
-// import type { Express } from "express";
-// import { createServer, type Server } from "http";
-// import { storage } from "./storage";
-// import { setupAuth, isAuthenticated } from "./replitAuth";
-// import { 
-//   insertContactSubmissionSchema,
-//   insertContentItemSchema,
-//   insertTeamMemberSchema,
-//   insertHeaderSettingsSchema,
-//   insertFooterSettingsSchema 
-// } from "@shared/schema";
 
-// export async function registerRoutes(app: Express): Promise<Server> {
-//   // Auth middleware
-//   await setupAuth(app);
-
-//   // Auth routes
-//   app.get('/api/auth/user',  async (req: any, res) => {
-//     try {
-//       const userId = req.user.claims.sub;
-//       const user = await storage.getUser(userId);
-//       res.json(user);
-//     } catch (error) {
-//       console.error("Error fetching user:", error);
-//       res.status(500).json({ message: "Failed to fetch user" });
-//     }
-//   });
-
-//   // ===== PUBLIC ROUTES =====
-  
-//   // Contact form submission
-//   app.post('/api/contact', async (req, res) => {
-//     try {
-//       const validation = insertContactSubmissionSchema.safeParse(req.body);
-//       if (!validation.success) {
-//         return res.status(400).json({ message: "Invalid data", errors: validation.error.errors });
-//       }
-
-//       const submission = await storage.createContactSubmission(validation.data);
-//       res.json({ message: "Thank you for your message! We will contact you soon.", id: submission.id });
-//     } catch (error) {
-//       console.error("Error creating contact submission:", error);
-//       res.status(500).json({ message: "Failed to submit message" });
-//     }
-//   });
-
-//   // ===== ADMIN ROUTES (Protected) =====
-  
-//   // Contact submissions management
-//   app.get('/api/admin/contacts',  async (req, res) => {
-//     try {
-//       const submissions = await storage.getAllContactSubmissions();
-//       res.json(submissions);
-//     } catch (error) {
-//       console.error("Error fetching contact submissions:", error);
-//       res.status(500).json({ message: "Failed to fetch submissions" });
-//     }
-//   });
-
-//   app.get('/api/admin/contacts/:id',  async (req, res) => {
-//     try {
-//       const id = parseInt(req.params.id);
-//       const submission = await storage.getContactSubmission(id);
-//       if (!submission) {
-//         return res.status(404).json({ message: "Submission not found" });
-//       }
-//       res.json(submission);
-//     } catch (error) {
-//       console.error("Error fetching contact submission:", error);
-//       res.status(500).json({ message: "Failed to fetch submission" });
-//     }
-//   });
-
-//   app.patch('/api/admin/contacts/:id/read',  async (req, res) => {
-//     try {
-//       const id = parseInt(req.params.id);
-//       await storage.markContactAsRead(id);
-//       res.json({ message: "Marked as read" });
-//     } catch (error) {
-//       console.error("Error marking as read:", error);
-//       res.status(500).json({ message: "Failed to update" });
-//     }
-//   });
-
-//   app.patch('/api/admin/contacts/:id/reply',  async (req, res) => {
-//     try {
-//       const id = parseInt(req.params.id);
-//       const { notes } = req.body;
-//       await storage.markContactAsReplied(id, notes);
-//       res.json({ message: "Marked as replied" });
-//     } catch (error) {
-//       console.error("Error marking as replied:", error);
-//       res.status(500).json({ message: "Failed to update" });
-//     }
-//   });
-
-//   app.delete('/api/admin/contacts/:id',  async (req, res) => {
-//     try {
-//       const id = parseInt(req.params.id);
-//       await storage.deleteContactSubmission(id);
-//       res.json({ message: "Submission deleted" });
-//     } catch (error) {
-//       console.error("Error deleting submission:", error);
-//       res.status(500).json({ message: "Failed to delete" });
-//     }
-//   });
-
-//   // Content management
-//   app.get('/api/admin/content', async (req, res) => {
-//     try {
-//       const { page } = req.query;
-//       const items = page 
-//         ? await storage.getContentItemsByPage(page as string)
-//         : await storage.getAllContentItems();
-//       res.json(items);
-//     } catch (error) {
-//       console.error("Error fetching content items:", error);
-//       res.status(500).json({ message: "Failed to fetch content" });
-//     }
-//   });
-
-//   app.post('/api/admin/content',  async (req, res) => {
-//     try {
-//       const validation = insertContentItemSchema.safeParse(req.body);
-//       if (!validation.success) {
-//         return res.status(400).json({ message: "Invalid data", errors: validation.error.errors });
-//       }
-
-//       const item = await storage.createContentItem(validation.data);
-//       res.json(item);
-//     } catch (error) {
-//       console.error("Error creating content item:", error);
-//       res.status(500).json({ message: "Failed to create content" });
-//     }
-//   });
-
-//   app.patch('/api/admin/content/:id',  async (req, res) => {
-//     try {
-//       const id = parseInt(req.params.id);
-//       if (isNaN(id)) {
-//         return res.status(400).json({ message: "Invalid content ID" });
-//       }
-      
-//       console.log(`Updating content ${id} with data:`, req.body);
-//       const item = await storage.updateContentItem(id, req.body);
-//       console.log('Content updated successfully:', item);
-//       res.json(item);
-//     } catch (error) {
-//       console.error("Error updating content item:", error);
-//       res.status(500).json({ 
-//         message: "Failed to update content",
-//         error: error instanceof Error ? error.message : 'Unknown error'
-//       });
-//     }
-//   });
-
-//   app.delete('/api/admin/content/:id',  async (req, res) => {
-//     try {
-//       const id = parseInt(req.params.id);
-//       await storage.deleteContentItem(id);
-//       res.json({ message: "Content deleted" });
-//     } catch (error) {
-//       console.error("Error deleting content:", error);
-//       res.status(500).json({ message: "Failed to delete" });
-//     }
-//   });
-
-//   // Public team endpoint for website display
-//   app.get('/api/team', async (req, res) => {
-//     try {
-//       const members = await storage.getAllTeamMembers();
-//       res.json(members);
-//     } catch (error) {
-//       console.error("Error fetching team members:", error);
-//       res.status(500).json({ message: "Failed to fetch team" });
-//     }
-//   });
-
-//   // Team management
-//   app.get('/api/admin/team',  async (req, res) => {
-//     try {
-//       const members = await storage.getAllTeamMembers();
-//       res.json(members);
-//     } catch (error) {
-//       console.error("Error fetching team members:", error);
-//       res.status(500).json({ message: "Failed to fetch team" });
-//     }
-//   });
-
-//   app.post('/api/admin/team',  async (req, res) => {
-//     try {
-//       const validation = insertTeamMemberSchema.safeParse(req.body);
-//       if (!validation.success) {
-//         return res.status(400).json({ message: "Invalid data", errors: validation.error.errors });
-//       }
-
-//       const member = await storage.createTeamMember(validation.data);
-//       res.json(member);
-//     } catch (error) {
-//       console.error("Error creating team member:", error);
-//       res.status(500).json({ message: "Failed to create team member" });
-//     }
-//   });
-
-//   app.patch('/api/admin/team/:id',  async (req, res) => {
-//     try {
-//       const id = parseInt(req.params.id);
-//       const member = await storage.updateTeamMember(id, req.body);
-//       res.json(member);
-//     } catch (error) {
-//       console.error("Error updating team member:", error);
-//       res.status(500).json({ message: "Failed to update team member" });
-//     }
-//   });
-
-//   app.delete('/api/admin/team/:id',  async (req, res) => {
-//     try {
-//       const id = parseInt(req.params.id);
-//       await storage.deleteTeamMember(id);
-//       res.json({ message: "Team member deleted" });
-//     } catch (error) {
-//       console.error("Error deleting team member:", error);
-//       res.status(500).json({ message: "Failed to delete" });
-//     }
-//   });
-
-//   // Header & Footer settings management
-//   app.get('/api/admin/header-settings',  async (req, res) => {
-//     try {
-//       const settings = await storage.getHeaderSettings();
-//       res.json(settings || {});
-//     } catch (error) {
-//       console.error("Error fetching header settings:", error);
-//       res.status(500).json({ message: "Failed to fetch header settings" });
-//     }
-//   });
-
-//   app.patch('/api/admin/header-settings',  async (req, res) => {
-//     try {
-//       const settings = await storage.updateHeaderSettings(req.body);
-//       res.json(settings);
-//     } catch (error) {
-//       console.error("Error updating header settings:", error);
-//       res.status(500).json({ message: "Failed to update header settings" });
-//     }
-//   });
-
-//   app.get('/api/admin/footer-settings',  async (req, res) => {
-//     try {
-//       const settings = await storage.getFooterSettings();
-//       res.json(settings || {});
-//     } catch (error) {
-//       console.error("Error fetching footer settings:", error);
-//       res.status(500).json({ message: "Failed to fetch footer settings" });
-//     }
-//   });
-
-//   app.patch('/api/admin/footer-settings',  async (req, res) => {
-//     try {
-//       const settings = await storage.updateFooterSettings(req.body);
-//       res.json(settings);
-//     } catch (error) {
-//       console.error("Error updating footer settings:", error);
-//       res.status(500).json({ message: "Failed to update footer settings" });
-//     }
-//   });
-
-//   // Button Links routes
-//   app.get('/api/admin/button-links',  async (req, res) => {
-//     try {
-//       const links = await storage.getAllButtonLinks();
-//       res.json(links);
-//     } catch (error) {
-//       console.error("Error fetching button links:", error);
-//       res.status(500).json({ message: "Failed to fetch button links" });
-//     }
-//   });
-
-//   app.get('/api/admin/button-links/:contentKey',  async (req, res) => {
-//     try {
-//       const link = await storage.getButtonLinkByContentKey(req.params.contentKey);
-//       res.json(link);
-//     } catch (error) {
-//       console.error("Error fetching button link:", error);
-//       res.status(500).json({ message: "Failed to fetch button link" });
-//     }
-//   });
-
-//   app.post('/api/admin/button-links',  async (req, res) => {
-//     try {
-//       const newLink = await storage.createButtonLink(req.body);
-//       res.json(newLink);
-//     } catch (error) {
-//       console.error("Error creating button link:", error);
-//       res.status(500).json({ message: "Failed to create button link" });
-//     }
-//   });
-
-//   app.patch('/api/admin/button-links/:id',  async (req, res) => {
-//     try {
-//       const updatedLink = await storage.updateButtonLink(parseInt(req.params.id), req.body);
-//       res.json(updatedLink);
-//     } catch (error) {
-//       console.error("Error updating button link:", error);
-//       res.status(500).json({ message: "Failed to update button link" });
-//     }
-//   });
-
-//   app.delete('/api/admin/button-links/:id',  async (req, res) => {
-//     try {
-//       await storage.deleteButtonLink(parseInt(req.params.id));
-//       res.json({ success: true });
-//     } catch (error) {
-//       console.error("Error deleting button link:", error);
-//       res.status(500).json({ message: "Failed to delete button link" });
-//     }
-//   });
-
-//   const httpServer = createServer(app);
-//   return httpServer;
-// }
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
@@ -329,6 +9,7 @@ import {
   insertHeaderSettingsSchema,
   insertFooterSettingsSchema 
 } from "@shared/schema";
+import bcrypt from 'bcrypt';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check endpoint to verify server is running updated code
@@ -339,6 +20,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
       message: 'Routes without authentication - v2'
     });
   });
+
+  // Auth session endpoints (email/password)
+  app.get('/api/auth/user', async (req: any, res) => {
+    if (req.session?.user) {
+      return res.json({ id: req.session.user.id, email: req.session.user.email });
+    }
+    return res.status(401).json({ message: 'Unauthorized' });
+  });
+
+  app.post('/api/login', async (req: any, res) => {
+    try {
+      const { email, password } = req.body || {};
+      if (!email || !password) {
+        return res.status(400).json({ message: 'Email and password are required' });
+      }
+      const user = await storage.getAuthUserByEmail(email);
+      if (!user) {
+        return res.status(401).json({ message: 'Invalid credentials' });
+      }
+      const ok = await bcrypt.compare(password, (user as any).password);
+      if (!ok) {
+        return res.status(401).json({ message: 'Invalid credentials' });
+      }
+      req.session.user = { id: (user as any).id, email: (user as any).username };
+      return res.json({ success: true });
+    } catch (e) {
+      console.error('Login error:', e);
+      return res.status(500).json({ message: 'Login failed' });
+    }
+  });
+
+  app.post('/api/logout', (req: any, res) => {
+    req.session?.destroy(() => {
+      res.json({ success: true });
+    });
+  });
+  app.get('/api/logout', (req: any, res) => {
+    req.session?.destroy(() => {
+      res.json({ success: true });
+    });
+  });
+
+  // Bootstrap: create first user if none exists
+  app.post('/api/setup/first-user', async (req: any, res) => {
+    try {
+      const existing = await storage.listAuthUsers();
+      if (existing.length > 0) {
+        return res.status(400).json({ message: 'Users already exist' });
+      }
+      // Optional production guard via secret
+      if (app.get('env') !== 'development') {
+        const provided = req.body?.secret;
+        const expected = process.env.SETUP_SECRET;
+        if (!expected || provided !== expected) {
+          return res.status(403).json({ message: 'Forbidden' });
+        }
+      }
+      const { email, password } = req.body || {};
+      if (!email || !password) {
+        return res.status(400).json({ message: 'Email and password are required' });
+      }
+      const hash = await bcrypt.hash(password, 10);
+      const created = await storage.createAuthUser(email, hash);
+      return res.json({ id: created.id, email: created.email });
+    } catch (e) {
+      console.error('Bootstrap create user error:', e);
+      return res.status(500).json({ message: 'Failed to create first user' });
+    }
+  });
+
+  const requireAuth = (req: any, res: any, next: any) => {
+    if (req.session?.user) return next();
+    return res.status(401).json({ message: 'Unauthorized' });
+  };
 
   // ===== PUBLIC ROUTES =====
   
@@ -365,7 +120,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===== ADMIN ROUTES (No longer protected) =====
-  
+  // Protect admin routes
+  // app.use('/api/admin', requireAuth);
+
   // Contact submissions management
   app.get('/api/admin/contacts', async (req, res) => {
     try {
@@ -789,6 +546,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: "Failed to delete",
         error: error instanceof Error ? error.message : 'Unknown error'
       });
+    }
+  });
+
+  // Users (email/password) management
+  app.get('/api/admin/users', async (_req, res) => {
+    const users = await storage.listAuthUsers();
+    res.json(users);
+  });
+
+  app.post('/api/admin/users', async (req, res) => {
+    try {
+      const { email, password } = req.body || {};
+      if (!email || !password) return res.status(400).json({ message: 'Email and password are required' });
+      const existing = await storage.getAuthUserByEmail(email);
+      if (existing) return res.status(400).json({ message: 'Email already exists' });
+      const hash = await bcrypt.hash(password, 10);
+      const created = await storage.createAuthUser(email, hash);
+      res.json(created);
+    } catch (e) {
+      console.error('Create user error:', e);
+      res.status(500).json({ message: 'Failed to create user' });
+    }
+  });
+
+  app.patch('/api/admin/users/:id/password', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { password } = req.body || {};
+      if (!password || isNaN(id)) return res.status(400).json({ message: 'Invalid input' });
+      const hash = await bcrypt.hash(password, 10);
+      await storage.updateAuthUserPassword(id, hash);
+      res.json({ success: true });
+    } catch (e) {
+      console.error('Update password error:', e);
+      res.status(500).json({ message: 'Failed to update password' });
+    }
+  });
+
+  app.delete('/api/admin/users/:id', async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ message: 'Invalid id' });
+      await storage.deleteAuthUser(id);
+      res.json({ success: true });
+    } catch (e) {
+      console.error('Delete user error:', e);
+      res.status(500).json({ message: 'Failed to delete user' });
     }
   });
 

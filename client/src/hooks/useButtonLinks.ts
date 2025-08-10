@@ -1,49 +1,53 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery } from "@tanstack/react-query";
 
-export function useButtonLink(contentKey: string) {
-  const { data: buttonLink, isLoading } = useQuery({
-    queryKey: [`/api/admin/button-links/${contentKey}`],
+export function useButtonLinks(contentKey: string) {
+  const { data: buttonLink } = useQuery({
+    queryKey: ["/api/admin/button-links/" + contentKey],
     retry: false,
   });
 
-  const getButtonAction = () => {
-    if (!buttonLink || !buttonLink.isActive) {
-      return null;
-    }
+  const link = (buttonLink || {}) as Partial<{
+    id: number;
+    contentKey: string;
+    linkType: 'external' | 'internal' | 'section';
+    externalUrl?: string;
+    internalPage?: string;
+    sectionId?: string;
+    isActive: boolean;
+  }>;
 
-    switch (buttonLink.linkType) {
-      case 'external':
-        return {
-          type: 'external',
-          action: () => window.open(buttonLink.externalUrl, '_blank'),
-          href: buttonLink.externalUrl
-        };
-      case 'internal':
-        return {
-          type: 'internal',
-          action: () => window.location.href = `/${buttonLink.internalPage}`,
-          href: `/${buttonLink.internalPage}`
-        };
-      case 'section':
-        return {
-          type: 'section',
-          action: () => {
-            const element = document.getElementById(buttonLink.sectionId);
-            if (element) {
-              element.scrollIntoView({ behavior: 'smooth' });
-            }
-          },
-          href: `#${buttonLink.sectionId}`
-        };
-      default:
-        return null;
-    }
-  };
+  if (!link || link.isActive === false) {
+    return { hasAction: false as const };
+  }
 
-  return {
-    buttonLink,
-    isLoading,
-    getButtonAction,
-    hasAction: buttonLink && buttonLink.isActive
-  };
+  switch (link.linkType) {
+    case 'external':
+      return {
+        hasAction: true as const,
+        action: () => link.externalUrl && window.open(link.externalUrl, '_blank'),
+        href: link.externalUrl
+      };
+    case 'internal':
+      return {
+        hasAction: true as const,
+        action: () => link.internalPage && (window.location.href = `/${link.internalPage}`),
+        href: link.internalPage ? `/${link.internalPage}` : undefined
+      };
+    case 'section':
+      return {
+        hasAction: true as const,
+        action: () => {
+          if (!link.sectionId) return;
+          const element = document.getElementById(link.sectionId);
+          if (element) element.scrollIntoView({ behavior: 'smooth' });
+        },
+        href: link.sectionId ? `#${link.sectionId}` : undefined
+      };
+    default:
+      return { hasAction: false as const };
+  }
+}
+
+export function useButtonLink(contentKey: string) {
+  return useButtonLinks(contentKey);
 }

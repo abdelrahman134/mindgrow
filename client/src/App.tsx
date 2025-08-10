@@ -16,6 +16,17 @@ import ServiceAgreement from "@/pages/service-agreement";
 import AdminLogin from "@/pages/admin-login";
 import AdminDashboard from "@/pages/admin-dashboard";
 import NotFound from "@/pages/not-found";
+import { useAuth } from "@/hooks/useAuth";
+
+function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
+  const { isAuthenticated, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (!isAuthenticated) {
+    window.location.href = "/admin-login";
+    return null;
+  }
+  return <Component />;
+}
 
 function Router() {
   return (
@@ -30,7 +41,7 @@ function Router() {
       <Route path="/terms-of-service" component={TermsOfService} />
       <Route path="/service-agreement" component={ServiceAgreement} />
       <Route path="/admin-login" component={AdminLogin} />
-      <Route path="/admin-dashboard" component={AdminDashboard} />
+      <Route path="/admin-dashboard" component={() => <ProtectedRoute component={AdminDashboard} />} />
       <Route component={NotFound} />
     </Switch>
   );

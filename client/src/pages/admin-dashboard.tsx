@@ -24,7 +24,10 @@ import {
   ShoppingBag, CreditCard, Smartphone, Package, TrendingUp as TrendingUpIcon,
   ClipboardCheck, Calculator, Microscope, Gamepad2, PenTool, Shirt, Dumbbell,
   CheckCircle, Languages, Play, Music, Paintbrush, Camera, Book,
-  Globe2, Rocket, Diamond, Coins, CheckCircle2, Headphones, Megaphone, Plus
+  Globe2, Rocket, Diamond, Coins, CheckCircle2, Headphones, Megaphone, Plus,
+  Shield as ShieldIcon,
+  Key,
+  Check
 } from 'lucide-react';
 import type { 
   ContactSubmission, 
@@ -1739,10 +1742,300 @@ function HomePageContentManager({ content }: { content: ContentItem[] }) {
   );
 }
 
+function UsersManager() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [updatingUserId, setUpdatingUserId] = useState<number | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const { data: users = [], isLoading } = useQuery({ queryKey: ['/api/admin/users'] });
+
+  const createUser = useMutation({
+    mutationFn: (data: { email: string; password: string }) =>
+      apiRequest('/api/admin/users', { method: 'POST', body: data }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      setEmail(""); setPassword("");
+      toast({ title: 'تم إنشاء المستخدم بنجاح' });
+    },
+    onError: async (e: any) => {
+      toast({ title: 'فشل الإنشاء', description: e?.message || 'خطأ', variant: 'destructive' });
+    }
+  });
+
+  const deleteUser = useMutation({
+    mutationFn: (id: number) => apiRequest(`/api/admin/users/${id}`, { method: 'DELETE' }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      toast({ title: 'تم حذف المستخدم بنجاح' });
+    },
+  });
+
+  const updatePassword = useMutation({
+    mutationFn: ({ id, password }: { id: number; password: string }) =>
+      apiRequest(`/api/admin/users/${id}/password`, { method: 'PATCH', body: { password } }),
+    onSuccess: () => {
+      toast({ title: 'تم تحديث كلمة المرور بنجاح' });
+      setUpdatingUserId(null);
+      setNewPassword("");
+      setConfirmPassword("");
+    },
+    onError: (e: any) => {
+      toast({ 
+        title: 'فشل التحديث', 
+        description: e?.message || 'خطأ', 
+        variant: 'destructive' 
+      });
+      setNewPassword("");
+      setConfirmPassword("");
+    }
+  });
+  
+  const handleUpdatePassword = (userId: number) => {
+    if (!newPassword) {
+      toast({ 
+        title: 'خطأ', 
+        description: 'الرجاء إدخال كلمة مرور جديدة', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+      toast({ 
+        title: 'خطأ', 
+        description: 'كلمتا المرور غير متطابقتين', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+    
+    updatePassword.mutate({ id: userId, password: newPassword });
+  };
+
+  return (
+    <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-gray-50">
+      <CardHeader className="bg-gradient-to-r from-gray-50 to-blue-50 border-b cursor-pointer hover:from-gray-100 hover:to-blue-100 transition-colors">
+        <CardTitle className="flex items-center gap-3 text-xl font-bold">
+          <div className="p-2 bg-white/20 rounded-lg">
+            <Shield className="h-6 w-6" />
+          </div>
+          إدارة المستخدمين
+        </CardTitle>
+        <CardDescription className="text-blue-100 text-base">
+          إضافة مستخدمين جدد وإدارة كلمات المرور بسهولة
+        </CardDescription>
+      </CardHeader>
+      
+      <CardContent className="p-8 space-y-8">
+        {/* Add User Section */}
+        <div className="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+            <Plus className="h-5 w-5 text-blue-600" />
+            إضافة مستخدم جديد
+          </h3>
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="userEmail" className="text-sm font-medium text-gray-700">
+                البريد الإلكتروني
+              </Label>
+              <Input 
+                id="userEmail" 
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)} 
+                dir="ltr" 
+                placeholder="admin@example.com"
+                className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="userPassword" className="text-sm font-medium text-gray-700">
+                كلمة المرور
+              </Label>
+              <Input 
+                id="userPassword" 
+                type="password" 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)}
+                className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                placeholder="••••••••"
+              />
+            </div>
+            <div className="lg:col-span-2 flex items-end">
+              <Button 
+                onClick={() => createUser.mutate({ email, password })} 
+                disabled={!email || !password || createUser.isPending}
+                className="w-full lg:w-auto h-11 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium px-6 shadow-lg hover:shadow-xl transition-all duration-200"
+              >
+                {createUser.isPending ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent ml-2" />
+                    جاري الإنشاء...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4 ml-2" />
+                    إضافة مستخدم
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Users List Section */}
+        <div className="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
+          <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+              <Users className="h-5 w-5 text-gray-600" />
+              قائمة المستخدمين ({users.length})
+            </h3>
+          </div>
+          
+          <div className="p-6">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="animate-spin rounded-full h-8 w-8 border-3 border-blue-600 border-t-transparent" />
+                  <p className="text-gray-500 font-medium">جاري تحميل المستخدمين...</p>
+                </div>
+              </div>
+            ) : users.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="p-4 bg-gray-100 rounded-full mb-4">
+                  <Users className="h-8 w-8 text-gray-400" />
+                </div>
+                <h4 className="text-lg font-medium text-gray-700 mb-2">لا يوجد مستخدمون</h4>
+                <p className="text-gray-500">ابدأ بإضافة مستخدم جديد من الأعلى</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {users.map((u: any, index: number) => (
+                  <div key={u.id} className="group relative">
+                    <div className="flex items-center justify-between p-5 border border-gray-200 rounded-xl hover:shadow-md hover:border-blue-300 transition-all duration-200 bg-white">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full text-white font-bold">
+                          {index + 1}
+                        </div>
+                        <div>
+                          <div className="font-medium text-gray-900" dir="ltr">{u.email}</div>
+                          <div className="text-sm text-gray-500">مستخدم مسجل</div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-3">
+                        {updatingUserId === u.id ? (
+                          <div className="flex flex-col gap-3 p-4 border border-blue-200 rounded-xl bg-blue-50 min-w-80">
+                            <div className="space-y-3">
+                              <Input
+                                type="password"
+                                placeholder="كلمة المرور الجديدة"
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                className="border-blue-300 focus:border-blue-500 focus:ring-blue-500"
+                              />
+                              <Input
+                                type="password"
+                                placeholder="تأكيد كلمة المرور"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                className="border-blue-300 focus:border-blue-500 focus:ring-blue-500"
+                              />
+                            </div>
+                            <div className="flex gap-2 justify-end">
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => {
+                                  setUpdatingUserId(null);
+                                  setNewPassword("");
+                                  setConfirmPassword("");
+                                }}
+                                className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                              >
+                                <X className="h-4 w-4 ml-1" />
+                                إلغاء
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                onClick={() => handleUpdatePassword(u.id)}
+                                disabled={updatePassword.isPending}
+                                className="bg-green-600 hover:bg-green-700 text-white"
+                              >
+                                {updatePassword.isPending ? (
+                                  <>
+                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent ml-2" />
+                                    جاري الحفظ...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Check className="h-4 w-4 ml-1" />
+                                    حفظ
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => {
+                                setUpdatingUserId(u.id);
+                                setNewPassword("");
+                                setConfirmPassword("");
+                              }}
+                              className="border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400 transition-colors"
+                            >
+                              <Key className="h-4 w-4 ml-1" />
+                              تحديث كلمة المرور
+                            </Button>
+                            <Button 
+                              variant="destructive" 
+                              size="sm" 
+                              onClick={() => deleteUser.mutate(u.id)}
+                              className="bg-red-600 hover:bg-red-700 text-white shadow-sm hover:shadow-md transition-all duration-200"
+                              disabled={deleteUser.isPending}
+                            >
+                              {deleteUser.isPending ? (
+                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+import { useLocation } from 'wouter';
+
 export default function AdminDashboard() {
   const [selectedContact, setSelectedContact] = useState<ContactSubmission | null>(null);
   const [replyNotes, setReplyNotes] = useState("");
   const queryClient = useQueryClient();
+  const [location, setLocation] = useLocation();
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/logout', { method: 'POST' });
+      setLocation('/admin-login');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
 
   const { data: contacts = [], isLoading: contactsLoading } = useQuery({
     queryKey: ['/api/admin/contacts'],
@@ -1808,8 +2101,8 @@ export default function AdminDashboard() {
                   عرض الموقع
                 </a>
               </Button>
-              <Button asChild>
-                <a href="/api/logout">تسجيل الخروج</a>
+              <Button onClick={handleLogout}>
+                تسجيل الخروج
               </Button>
             </div>
           </div>
@@ -1874,7 +2167,7 @@ export default function AdminDashboard() {
         </div>
 
         <Tabs defaultValue="content" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="content" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
               إدارة المحتوى
@@ -1895,6 +2188,10 @@ export default function AdminDashboard() {
             <TabsTrigger value="team" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
               إدارة الفريق
+            </TabsTrigger>
+            <TabsTrigger value="users" className="flex items-center gap-2">
+              <Shield className="h-4 w-4" />
+              إدارة المستخدمين
             </TabsTrigger>
           </TabsList>
 
@@ -2210,6 +2507,11 @@ export default function AdminDashboard() {
                 <TeamManager />
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Users Management */}
+          <TabsContent value="users">
+            <UsersManager />
           </TabsContent>
         </Tabs>
       </div>

@@ -32,6 +32,13 @@ export interface IStorage {
   getUser(id: string): Promise<AdminUser | undefined>;
   upsertUser(user: UpsertAdminUser): Promise<AdminUser>;
 
+  // Local auth users (email/password)
+  listAuthUsers(): Promise<Array<{ id: number; email: string }>>;
+  getAuthUserByEmail(email: string): Promise<(User & { username: string }) | undefined>;
+  createAuthUser(email: string, passwordHash: string): Promise<{ id: number; email: string }>;
+  updateAuthUserPassword(id: number, passwordHash: string): Promise<void>;
+  deleteAuthUser(id: number): Promise<void>;
+
   // Content management
   getAllContentItems(): Promise<ContentItem[]>;
   getContentItemsByPage(page: string): Promise<ContentItem[]>;
@@ -88,6 +95,34 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return user;
+  }
+
+  // Local auth users (email/password)
+  async listAuthUsers(): Promise<Array<{ id: number; email: string }>> {
+    const rows = await db.select({ id: users.id, email: users.username }).from(users).orderBy(users.id);
+    return rows.map(r => ({ id: r.id, email: r.email }));
+  }
+
+  async getAuthUserByEmail(email: string): Promise<(User & { username: string }) | undefined> {
+    const [row] = await db.select().from(users).where(eq(users.username, email));
+    return row as any;
+    
+  }
+
+  async createAuthUser(email: string, passwordHash: string): Promise<{ id: number; email: string }> {
+    const [created] = await db
+      .insert(users)
+      .values({ username: email, password: passwordHash })
+      .returning({ id: users.id, email: users.username });
+    return created;
+  }
+
+  async updateAuthUserPassword(id: number, passwordHash: string): Promise<void> {
+    await db.update(users).set({ password: passwordHash }).where(eq(users.id, id));
+  }
+
+  async deleteAuthUser(id: number): Promise<void> {
+    await db.delete(users).where(eq(users.id, id));
   }
 
   // Content management

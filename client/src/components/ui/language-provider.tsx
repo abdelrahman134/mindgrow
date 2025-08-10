@@ -24,7 +24,7 @@ export const LanguageProvider = ({ children }: LanguageProviderProps) => {
   }, [language]);
 
   const t = (key: string): string => {
-    return translations[language][key] || key;
+    return translations[language as 'ar' | 'en'][key as keyof typeof translations['ar']] || key;
   };
 
   const value = {

@@ -2,6 +2,9 @@ import express, { type Request, Response, NextFunction, RequestHandler } from "e
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import 'dotenv/config';
+import session from 'express-session';
+import connectPg from 'connect-pg-simple';
+import { pool } from './db';
 
 const app = express();
 
@@ -74,6 +77,26 @@ app.use((req, res, next) => {
 
 // Configure URL-encoded parser for form data
 app.use(express.urlencoded({ extended: false }));
+
+// Session middleware (for email/password auth)
+const PgStore = connectPg(session);
+app.set('trust proxy', 1);
+app.use(session({
+  store: new PgStore({
+    pool,
+    tableName: 'sessions',
+    createTableIfMissing: false
+  }),
+  secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    secure: app.get('env') !== 'development',
+    sameSite: 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000
+  }
+}));
 
 app.use((req, res, next) => {
   const start = Date.now();
