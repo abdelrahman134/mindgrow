@@ -7,7 +7,13 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+// Compute API base URL once. If we're on HTTPS and the env base is HTTP,
+// prefer same-origin (empty base) to avoid mixed content and CORS failures.
+const RAW_API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+const API_BASE_URL =
+  typeof window !== 'undefined' && window.location.protocol === 'https:' && RAW_API_BASE_URL.startsWith('http://')
+    ? ''
+    : RAW_API_BASE_URL;
 
 export async function apiRequest(
   url: string,
@@ -36,7 +42,9 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey[0] as string, {
+    const rawUrl = queryKey[0] as string;
+    const fullUrl = rawUrl.startsWith('http') ? rawUrl : `${API_BASE_URL}${rawUrl.startsWith('/') ? '' : '/'}${rawUrl}`;
+    const res = await fetch(fullUrl, {
       credentials: "include",
     });
 
