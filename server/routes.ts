@@ -12,6 +12,118 @@ import {
 import bcrypt from 'bcrypt';
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Get all FAQs
+  app.get('/api/faqs', async (req, res) => {
+    try {
+      console.log('Fetching FAQs...');
+      // Try to get FAQs by category first (most reliable)
+      let faqs = await storage.getContentItemsByCategory('faq');
+      
+      // If no FAQs found by category, try to get by page
+      if (!faqs || faqs.length === 0) {
+        console.log('No FAQs found by category, trying by page...');
+        faqs = await storage.getContentItemsByPage('faq');
+      }
+      
+      // If still no FAQs, try to get by key pattern
+      if (!faqs || faqs.length === 0) {
+        console.log('No FAQs found by page, trying by key pattern...');
+        const allContent = await storage.getAllContentItems();
+        faqs = allContent.filter(item => 
+          item.key && item.key.includes('faq')
+        );
+      }
+      
+      console.log(`Found ${faqs.length} FAQs`);
+      res.json(faqs);
+    } catch (error) {
+      console.error('Error fetching FAQs:', error);
+      res.status(500).json({ message: 'Failed to fetch FAQs' });
+    }
+  });
+
+  // Content management endpoints
+  app.get('/api/content', async (req, res) => {
+    try {
+      const allContent = await storage.getAllContentItems();
+      res.json(allContent);
+    } catch (error) {
+      console.error('Error fetching all content:', error);
+      res.status(500).json({ message: 'Failed to fetch content' });
+    }
+  });
+
+  app.get('/api/content/page/:page', async (req, res) => {
+    try {
+      const { page } = req.params;
+      let content = await storage.getContentItemsByPage(page);
+      
+      // If no content found by page, try by category
+      if (!content || content.length === 0) {
+        content = await storage.getContentItemsByCategory(page);
+      }
+      
+      // If still no content, try to filter by key prefix
+      if (!content || content.length === 0) {
+        const allContent = await storage.getAllContentItems();
+        content = allContent.filter(item => 
+          item.key && item.key.startsWith(page)
+        );
+      }
+      
+      res.json(content);
+    } catch (error) {
+      console.error(`Error fetching content for page ${req.params.page}:`, error);
+      res.status(500).json({ message: 'Failed to fetch content' });
+    }
+  });
+
+  app.get('/api/content/category/:category', async (req, res) => {
+    try {
+      const { category } = req.params;
+      const content = await storage.getContentItemsByCategory(category);
+      res.json(content);
+    } catch (error) {
+      console.error(`Error fetching content for category ${req.params.category}:`, error);
+      res.status(500).json({ message: 'Failed to fetch content' });
+    }
+  });
+
+  // Contact form submission endpoint
+  app.post('/api/contact', async (req, res) => {
+    try {
+      // Debug raw body
+      console.log('=== RAW CONTACT BODY ===');
+      console.log(JSON.stringify(req.body));
+      console.log('========================');
+
+      // Map client payload (name -> fullName)
+      const payload = {
+        fullName: req.body?.fullName || req.body?.name || '',
+        email: req.body?.email || '',
+        phone: req.body?.phone || undefined,
+        subject: req.body?.subject || undefined,
+        message: req.body?.message || '',
+      };
+      console.log('Mapped contact payload:', payload);
+
+      // Validate input against shared schema
+      const parsed = insertContactSubmissionSchema.safeParse(payload);
+      if (!parsed.success) {
+        console.warn('Invalid contact submission:', parsed.error.flatten());
+        return res.status(400).json({ message: 'Invalid data', errors: parsed.error.flatten() });
+      }
+
+      // Persist to database
+      const created = await storage.createContactSubmission(parsed.data);
+      console.log('Contact submission created:', created.id);
+      return res.status(201).json({ success: true, id: created.id });
+    } catch (error) {
+      console.error('Error handling contact submission:', error);
+      return res.status(500).json({ message: 'Failed to submit contact form' });
+    }
+  });
+
   // Health check endpoint to verify server is running updated code
   app.get('/api/health', (req, res) => {
     res.json({ 
@@ -97,31 +209,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ===== PUBLIC ROUTES =====
   
-  // Contact form submission
-  app.post('/api/contact', async (req, res) => {
+  // Public: Team members (active only)
+  app.get('/api/team', async (req, res) => {
     try {
-      console.log('Contact submission received:', req.body);
-      const validation = insertContactSubmissionSchema.safeParse(req.body);
-      if (!validation.success) {
-        console.log('Validation failed:', validation.error.errors);
-        return res.status(400).json({ message: "Invalid data", errors: validation.error.errors });
-      }
-
-      const submission = await storage.createContactSubmission(validation.data);
-      console.log('Contact submission created:', submission.id);
-      res.json({ message: "Thank you for your message! We will contact you soon.", id: submission.id });
+      const team = await storage.getAllTeamMembers();
+      return res.json(team);
     } catch (error) {
-      console.error("Error creating contact submission:", error);
-      res.status(500).json({ 
-        message: "Failed to submit message",
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      console.error('Error fetching team members:', error);
+      return res.status(500).json({ message: 'Failed to fetch team members' });
+    }
+  });
+
+  // Public: Header settings
+  app.get('/api/header-settings', async (req, res) => {
+    try {
+      const settings = await storage.getHeaderSettings();
+      return res.json(settings || {});
+    } catch (error) {
+      console.error('Error fetching header settings:', error);
+      return res.status(500).json({ message: 'Failed to fetch header settings' });
     }
   });
 
   // ===== ADMIN ROUTES (No longer protected) =====
   // Protect admin routes
   // app.use('/api/admin', requireAuth);
+
+  // Admin: Header settings
+  app.get('/api/admin/header-settings', async (req, res) => {
+    try {
+      const settings = await storage.getHeaderSettings();
+      return res.json(settings || {});
+    } catch (error) {
+      console.error('Error fetching header settings (admin):', error);
+      return res.status(500).json({ message: 'Failed to fetch header settings' });
+    }
+  });
+
+  app.patch('/api/admin/header-settings', async (req, res) => {
+    try {
+      const updated = await storage.updateHeaderSettings(req.body || {});
+      return res.json(updated);
+    } catch (error) {
+      console.error('Error updating header settings (admin):', error);
+      return res.status(500).json({ message: 'Failed to update header settings' });
+    }
+  });
 
   // Contact submissions management
   app.get('/api/admin/contacts', async (req, res) => {
@@ -597,6 +730,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Header & Footer settings management
+  // Public footer settings for client consumption
+  app.get('/api/footer-settings', async (req, res) => {
+    try {
+      const settings = await storage.getFooterSettings();
+      res.json(settings || {});
+    } catch (error) {
+      console.error("Error fetching public footer settings:", error);
+      res.status(500).json({ message: 'Failed to fetch footer settings' });
+    }
+  });
+
   app.get('/api/admin/header-settings', async (req, res) => {
     try {
       console.log('Fetching header settings');

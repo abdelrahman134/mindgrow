@@ -5,17 +5,28 @@ import { useLanguage } from "@/lib/i18n";
 export function useContent(page?: string) {
   const { language } = useLanguage();
   
-  const { data: content = [], isLoading, error } = useQuery({
-    queryKey: page ? ['/api/admin/content', page] : ['/api/admin/content'],
+  // Fetch regular content
+  const { data: content = [], isLoading: isContentLoading, error: contentError } = useQuery({
+    // Always fetch the full content set; components use absolute keys like 'hero.title'
+    queryKey: ['/api/content'],
     queryFn: async () => {
-      const url = page ? `/api/admin/content?page=${page}` : '/api/admin/content';
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error('Failed to fetch content');
+      console.log('[useContent] Fetching all content (page scoping disabled)');
+      const url = '/api/content';
+      try {
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json() as ContentItem[];
+        console.log(`[useContent] Fetched ${data.length} content items`, data);
+        return data;
+      } catch (error) {
+        console.error('[useContent] Error fetching all content:', error);
+        throw error;
       }
-      return response.json() as Promise<ContentItem[]>;
     },
-    retry: false,
+    staleTime: 60_000, // cache for 1 minute
+    retry: 1,
   });
 
   // Helper function to get content value by key
@@ -37,12 +48,21 @@ export function useContent(page?: string) {
     return content.filter(c => c.category === category);
   };
 
+  // Helper to derive FAQs from the already-fetched content
+  const getFaqs = (): ContentItem[] => {
+    const byCategory = getContentByCategory('faq');
+    if (byCategory.length > 0) return byCategory;
+    // Fallback: keys containing 'faq'
+    return content.filter(c => c.key?.toLowerCase().includes('faq'));
+  };
+
   return {
     content,
-    isLoading,
-    error,
+    isLoading: isContentLoading,
+    error: contentError,
     getContent,
     getContentItem,
     getContentByCategory,
+    getFaqs,
   };
 }

@@ -7,11 +7,16 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+
 export async function apiRequest(
   url: string,
   options?: { method?: string; body?: any; headers?: Record<string, string> },
 ): Promise<Response> {
-  const res = await fetch(url, {
+  // Prepend the API base URL if the URL doesn't start with http
+  const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+  
+  const res = await fetch(fullUrl, {
     method: options?.method || 'GET',
     headers: {
       "Content-Type": "application/json",

@@ -3,17 +3,41 @@ import { Button } from '@/components/ui/button';
 import logoWhite from '@assets/لوقو بالالون الابيض خلفية شفافة_1751796521960.png';
 import { Link } from 'wouter';
 import { useLanguage } from '@/lib/i18n';
+import { useQuery } from '@tanstack/react-query';
 
 const Footer = () => {
   const { t, dir, language } = useLanguage();
-  const quickLinks = [
-    { href: '/', label: t('nav.children') },
-    { href: '/parents', label: t('nav.parents') },
-    { href: '/sellers', label: t('nav.sellers') },
-    { href: '/teachers', label: t('nav.teachers') },
-    { href: '/about-us', label: t('nav.about') },
-    { href: '/contact', label: t('nav.contact') }
+
+  // Load footer settings from backend
+  const { data: footerSettings } = useQuery({
+    queryKey: ['/api/footer-settings'],
+    queryFn: async () => {
+      const res = await fetch('/api/footer-settings');
+      if (!res.ok) throw new Error('Failed to load footer settings');
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+
+  // Parse showPages which may be stringified
+  const rawShowPages = (footerSettings?.showPages ?? {}) as any;
+  let showPages: Record<string, boolean> = {};
+  if (typeof rawShowPages === 'string') {
+    try { showPages = JSON.parse(rawShowPages); } catch { showPages = {}; }
+  } else if (typeof rawShowPages === 'object' && rawShowPages) {
+    showPages = rawShowPages as Record<string, boolean>;
+  }
+
+  // Quick links filtered by visibility (default visible)
+  const allLinks = [
+    { key: 'home', href: '/', label: t('nav.children') },
+    { key: 'parents', href: '/parents', label: t('nav.parents') },
+    { key: 'sellers', href: '/sellers', label: t('nav.sellers') },
+    { key: 'teachers', href: '/teachers', label: t('nav.teachers') },
+    { key: 'about', href: '/about-us', label: t('nav.about') },
+    { key: 'contact', href: '/contact', label: t('nav.contact') },
   ];
+  const quickLinks = allLinks.filter(link => showPages[link.key] !== false);
 
   const features = [
     t('footer.features.interactive'),
@@ -38,7 +62,7 @@ const Footer = () => {
           {/* Company Info */}
           <div className="lg:col-span-1">
             <div className="mb-6">
-              <img src={logoWhite} alt="MindGrow Logo" className="h-10 sm:h-12 lg:h-14 w-auto mb-4 object-contain" />
+              <img src={logoWhite} alt="MindGrow Logo" className="h-10 sm:h-12 lg:h-20 w-auto mb-4 object-contain" />
               <p className="text-base lg:text-lg font-medium opacity-90 leading-relaxed">
                 {t('footer.description')}
               </p>
@@ -48,15 +72,15 @@ const Footer = () => {
             <div className="space-y-3">
               <div className={`flex items-center ${language === 'ar' ? 'space-x-3 space-x-reverse' : 'space-x-3'}`}>
                 <Phone className="h-5 w-5 opacity-75" />
-                <span className="opacity-90">+974-6601-8814</span>
+                <span className="opacity-90">{footerSettings?.contactPhone || t('contact.phone')}</span>
               </div>
               <div className={`flex items-center ${language === 'ar' ? 'space-x-3 space-x-reverse' : 'space-x-3'}`}>
                 <Mail className="h-5 w-5 opacity-75" />
-                <span className="opacity-90">support@mindgrow.pro</span>
+                <span className="opacity-90">{footerSettings?.contactEmail || t('contact.email')}</span>
               </div>
               <div className={`flex items-center ${language === 'ar' ? 'space-x-3 space-x-reverse' : 'space-x-3'}`}>
                 <MapPin className="h-5 w-5 opacity-75" />
-                <span className="opacity-90">{t('contact.address')}</span>
+                <span className="opacity-90">{language === 'ar' ? (footerSettings?.contactAddressAr || t('contact.address')) : (footerSettings?.contactAddressEn || t('contact.address'))}</span>
               </div>
             </div>
           </div>
@@ -111,18 +135,20 @@ const Footer = () => {
             </div>
 
             {/* Social Media */}
-            <div className={`flex ${language === 'ar' ? 'space-x-4 space-x-reverse' : 'space-x-4'}`}>
-              {socialLinks.map((social, index) => (
-                <a
-                  key={index}
-                  href={social.href}
-                  className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-all duration-300"
-                  aria-label={social.label}
-                >
-                  <social.icon className="h-5 w-5" />
-                </a>
-              ))}
-            </div>
+            {footerSettings?.showSocialLinks !== false && (
+              <div className={`flex ${language === 'ar' ? 'space-x-4 space-x-reverse' : 'space-x-4'}`}>
+                {socialLinks.map((social, index) => (
+                  <a
+                    key={index}
+                    href={social.href}
+                    className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-all duration-300"
+                    aria-label={social.label}
+                  >
+                    <social.icon className="h-5 w-5" />
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -131,27 +157,33 @@ const Footer = () => {
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
             <div className={`flex items-center ${language === 'ar' ? 'space-x-2 space-x-reverse' : 'space-x-2'}`}>
               <span className="opacity-90 font-medium">
-                {t('footer.rights')}
+                {language === 'ar' ? (footerSettings?.copyrightTextAr || t('footer.rights')) : (footerSettings?.copyrightTextEn || t('footer.rights'))}
               </span>
               <Heart className="h-4 w-4 text-red-300" />
             </div>
             
             <div className={`flex ${language === 'ar' ? 'space-x-6 space-x-reverse' : 'space-x-6'} text-sm`}>
-              <Link href="/privacy-policy">
-                <span className="opacity-90 hover:opacity-100 transition-opacity font-medium cursor-pointer">
-                  {t('footer.privacy')}
-                </span>
-              </Link>
-              <Link href="/terms-of-service">
-                <span className="opacity-90 hover:opacity-100 transition-opacity font-medium cursor-pointer">
-                  {t('footer.terms')}
-                </span>
-              </Link>
-              <Link href="/service-agreement">
-                <span className="opacity-90 hover:opacity-100 transition-opacity font-medium cursor-pointer">
-                  {t('footer.service')}
-                </span>
-              </Link>
+              {showPages['privacy'] !== false && (
+                <Link href="/privacy-policy">
+                  <span className="opacity-90 hover:opacity-100 transition-opacity font-medium cursor-pointer">
+                    {t('footer.privacy')}
+                  </span>
+                </Link>
+              )}
+              {showPages['terms'] !== false && (
+                <Link href="/terms-of-service">
+                  <span className="opacity-90 hover:opacity-100 transition-opacity font-medium cursor-pointer">
+                    {t('footer.terms')}
+                  </span>
+                </Link>
+              )}
+              {showPages['service'] !== false && (
+                <Link href="/service-agreement">
+                  <span className="opacity-90 hover:opacity-100 transition-opacity font-medium cursor-pointer">
+                    {t('footer.service')}
+                  </span>
+                </Link>
+              )}
             </div>
           </div>
         </div>

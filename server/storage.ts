@@ -42,6 +42,7 @@ export interface IStorage {
   // Content management
   getAllContentItems(): Promise<ContentItem[]>;
   getContentItemsByPage(page: string): Promise<ContentItem[]>;
+  getContentItemsByCategory(category: string): Promise<ContentItem[]>;
   createContentItem(item: InsertContentItem): Promise<ContentItem>;
   updateContentItem(id: number, item: Partial<InsertContentItem>): Promise<ContentItem>;
   deleteContentItem(id: number): Promise<void>;
@@ -137,6 +138,10 @@ export class DatabaseStorage implements IStorage {
       .from(contentItems)
       .where(like(contentItems.key, `${page}.%`))
       .orderBy(contentItems.key);
+  }
+
+  async getContentItemsByCategory(category: string): Promise<ContentItem[]> {
+    return await db.select().from(contentItems).where(eq(contentItems.category, category));
   }
 
   async createContentItem(item: InsertContentItem): Promise<ContentItem> {
@@ -302,18 +307,48 @@ export class DatabaseStorage implements IStorage {
 
   async updateHeaderSettings(settingsData: Partial<InsertHeaderSettings>): Promise<HeaderSettings> {
     const existingSettings = await this.getHeaderSettings();
+    
+    // Create a clean copy of settingsData with only the fields we want to update
+    const { 
+      logoUrl, 
+      logoSize, 
+      showPages, 
+      showLanguageSwitcher,
+      buttonUrl,
+      buttonTextAr,
+      buttonTextEn
+    } = settingsData;
+    
+    // Prepare the update data with explicit field mapping
+    const updateData = {
+      logoUrl,
+      logoSize,
+      showLanguageSwitcher,
+      buttonUrl,
+      buttonTextAr,
+      buttonTextEn,
+      // Handle showPages as JSON string if it's an object
+      showPages: showPages && typeof showPages === 'object' ? JSON.stringify(showPages) : showPages,
+      // Always update the updatedAt timestamp
+      updatedAt: new Date()
+    };
 
     if (existingSettings) {
+      // Update existing settings
       const [updated] = await db
         .update(headerSettings)
-        .set(settingsData)
+        .set(updateData)
         .where(eq(headerSettings.id, existingSettings.id))
         .returning();
       return updated;
     } else {
+      // Create new settings with current timestamp
       const [created] = await db
         .insert(headerSettings)
-        .values(settingsData)
+        .values({
+          ...updateData,
+          createdAt: new Date()
+        })
         .returning();
       return created;
     }
@@ -326,18 +361,54 @@ export class DatabaseStorage implements IStorage {
 
   async updateFooterSettings(settingsData: Partial<InsertFooterSettings>): Promise<FooterSettings> {
     const existingSettings = await this.getFooterSettings();
+    
+    // Create a clean copy of settingsData with only the fields we want to update
+    const { 
+      logoUrl, 
+      logoSize, 
+      showSocialLinks, 
+      showPages, 
+      copyrightTextAr, 
+      copyrightTextEn, 
+      contactPhone, 
+      contactEmail, 
+      contactAddressAr, 
+      contactAddressEn 
+    } = settingsData;
+    
+    // Prepare the update data with explicit field mapping
+    const updateData = {
+      logoUrl,
+      logoSize,
+      showSocialLinks,
+      copyrightTextAr,
+      copyrightTextEn,
+      contactPhone,
+      contactEmail,
+      contactAddressAr,
+      contactAddressEn,
+      // Handle showPages as JSON string if it's an object
+      showPages: showPages && typeof showPages === 'object' ? JSON.stringify(showPages) : showPages,
+      // Always update the updatedAt timestamp
+      updatedAt: new Date()
+    };
 
     if (existingSettings) {
+      // Update existing settings
       const [updated] = await db
         .update(footerSettings)
-        .set(settingsData)
+        .set(updateData)
         .where(eq(footerSettings.id, existingSettings.id))
         .returning();
       return updated;
     } else {
+      // Create new settings with current timestamp
       const [created] = await db
         .insert(footerSettings)
-        .values(settingsData)
+        .values({
+          ...updateData,
+          createdAt: new Date()
+        })
         .returning();
       return created;
     }

@@ -15,8 +15,13 @@ const AboutUs = () => {
   const { getContent } = useContent('about');
   
   // Fetch team members from database
-  const { data: teamMembers = [], isLoading: isLoadingTeam } = useQuery({
+  const { data: teamMembers = [], isLoading: isLoadingTeam } = useQuery<TeamMember[]>({
     queryKey: ['/api/team'],
+    queryFn: async () => {
+      const res = await fetch('/api/team');
+      if (!res.ok) throw new Error('Failed to fetch team');
+      return res.json();
+    },
     retry: false,
   });
   
@@ -61,38 +66,38 @@ const AboutUs = () => {
 
   const features = [
     {
-      title: t('about.feature.comprehensive.title'),
-      description: t('about.feature.comprehensive.description'),
+      title: getContent('about.feature.comprehensive.title', t('about.feature.comprehensive.title')),
+      description: getContent('about.feature.comprehensive.description', t('about.feature.comprehensive.description')),
       icon: Users,
       color: 'bg-mindgrow-blue'
     },
     {
-      title: t('about.feature.safe.title'),
-      description: t('about.feature.safe.description'),
+      title: getContent('about.feature.safe.title', t('about.feature.safe.title')),
+      description: getContent('about.feature.safe.description', t('about.feature.safe.description')),
       icon: Shield,
       color: 'bg-mindgrow-green'
     },
     {
-      title: t('about.feature.interactive.title'),
-      description: t('about.feature.interactive.description'),
+      title: getContent('about.feature.interactive.title', t('about.feature.interactive.title')),
+      description: getContent('about.feature.interactive.description', t('about.feature.interactive.description')),
       icon: Star,
       color: 'bg-mindgrow-orange'
     },
     {
-      title: t('about.feature.multilingual.title'),
-      description: t('about.feature.multilingual.description'),
+      title: getContent('about.feature.multilingual.title', t('about.feature.multilingual.title')),
+      description: getContent('about.feature.multilingual.description', t('about.feature.multilingual.description')),
       icon: Target,
       color: 'bg-mindgrow-pink'
     },
     {
-      title: t('about.feature.rewards.title'),
-      description: t('about.feature.rewards.description'),
+      title: getContent('about.feature.rewards.title', t('about.feature.rewards.title')),
+      description: getContent('about.feature.rewards.description', t('about.feature.rewards.description')),
       icon: Award,
       color: 'bg-mindgrow-purple'
     },
     {
-      title: t('about.feature.analytics.title'),
-      description: t('about.feature.analytics.description'),
+      title: getContent('about.feature.analytics.title', t('about.feature.analytics.title')),
+      description: getContent('about.feature.analytics.description', t('about.feature.analytics.description')),
       icon: Rocket,
       color: 'bg-mindgrow-yellow'
     }
@@ -126,16 +131,37 @@ const AboutUs = () => {
     }
   ];
 
-  // Use database team members if available, otherwise use default
-  const team = teamMembers.length > 0 ? teamMembers : defaultTeam;
+  // Normalize to a single display shape regardless of source
+  type DefaultMember = { name: string; role: string; description: string; image: string };
+  type DisplayMember = { id?: number; name: string; role: string; description: string; imageUrl: string };
+
+  const displayTeam: DisplayMember[] = (teamMembers.length > 0 ? teamMembers : (defaultTeam as DefaultMember[])).map((m: any) => {
+    if ('position' in m || 'imageUrl' in m) {
+      // Backend TeamMember shape
+      return {
+        id: m.id,
+        name: m.name,
+        role: m.position,
+        description: m.bio ?? '',
+        imageUrl: m.imageUrl ?? ''
+      } as DisplayMember;
+    }
+    // Default member shape
+    return {
+      name: m.name,
+      role: m.role,
+      description: m.description,
+      imageUrl: m.image
+    } as DisplayMember;
+  });
 
   const stats = [
-    { number: '2024', label: language === 'ar' ? 'سنة التأسيس' : 'Year Founded' },
-    { number: '500+', label: t('about.stats.families') },
-    { number: '1000+', label: t('about.stats.children') },
-    { number: '10,000+', label: t('about.stats.tasks') },
-    { number: '98%', label: t('about.stats.satisfaction') },
-    { number: '15+', label: t('about.stats.cities') }
+    { number: getContent('about.stats.founded.number', '2024'), label: getContent('about.stats.founded.label', language === 'ar' ? 'سنة التأسيس' : 'Year Founded') },
+    { number: getContent('about.stats.families.number', '500+'), label: getContent('about.stats.families', t('about.stats.families')) },
+    { number: getContent('about.stats.children.number', '1000+'), label: getContent('about.stats.children', t('about.stats.children')) },
+    { number: getContent('about.stats.tasks.number', '10,000+'), label: getContent('about.stats.tasks', t('about.stats.tasks')) },
+    { number: getContent('about.stats.satisfaction.number', '98%'), label: getContent('about.stats.satisfaction', t('about.stats.satisfaction')) },
+    { number: getContent('about.stats.cities.number', '15+'), label: getContent('about.stats.cities', t('about.stats.cities')) }
   ];
 
   return (
@@ -148,13 +174,16 @@ const AboutUs = () => {
           <div className="bg-white/40 backdrop-blur-sm rounded-3xl p-8 border-4 border-white/60 shadow-2xl text-center">
             <Lightbulb className="h-20 w-20 text-mindgrow-primary mx-auto mb-6" />
             <h1 className="text-5xl lg:text-6xl font-black text-gray-900 mb-6 text-center">
-              {t('about.hero.title')}
+              {getContent('about.hero.title', t('about.hero.title'))}
             </h1>
+
             <p className="text-xl lg:text-2xl text-gray-600 mb-8 font-medium leading-relaxed text-center max-w-4xl mx-auto">
-              {t('about.hero.subtitle')}
+              {getContent('about.hero.subtitle', t('about.hero.subtitle'))}
+
             </p>
             <p className="text-lg text-gray-700 mb-8 leading-relaxed max-w-4xl mx-auto">
-              {t('about.hero.description')}
+              {getContent('about.hero.description', t('about.hero.description'))}
+
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button 
@@ -162,7 +191,8 @@ const AboutUs = () => {
                 className="bg-gradient-to-r from-mindgrow-primary to-mindgrow-orange text-white px-8 py-4 rounded-full text-lg font-black transform hover:scale-105 transition-all duration-300 shadow-lg"
               >
                 <Rocket className={`${language === 'ar' ? 'ml-3' : 'mr-3'} h-6 w-6`} />
-                {t('about.story.title')}
+                {getContent('about.story.title', t('about.story.title'))}
+
               </Button>
               <Button 
                 onClick={() => document.getElementById('team-section')?.scrollIntoView({ behavior: 'smooth' })}
@@ -170,7 +200,8 @@ const AboutUs = () => {
                 className="border-3 border-mindgrow-primary text-mindgrow-primary px-8 py-4 rounded-full text-lg font-black hover:bg-mindgrow-primary hover:text-white transition-all duration-300"
               >
                 <Users className={`${language === 'ar' ? 'ml-3' : 'mr-3'} h-6 w-6`} />
-                {t('about.team.title')}
+                {getContent('about.team.title', t('about.team.title'))}
+
               </Button>
             </div>
           </div>
@@ -184,9 +215,11 @@ const AboutUs = () => {
             <Card className="bg-white/80 backdrop-blur-sm border-2 border-gray-100 shadow-xl">
               <CardContent className="p-8 text-center">
                 <Target className="h-16 w-16 text-mindgrow-primary mx-auto mb-6" />
-                <h2 className="text-3xl font-black text-gray-900 mb-6">{t('about.mission.title')}</h2>
+                <h2 className="text-3xl font-black text-gray-900 mb-6">{getContent('about.mission.title', t('about.mission.title'))}</h2>
+
                 <p className="text-lg text-gray-600 leading-relaxed">
-                  {t('about.mission.description')}
+                  {getContent('about.mission.description', t('about.mission.description'))}
+
                 </p>
               </CardContent>
             </Card>
@@ -194,9 +227,11 @@ const AboutUs = () => {
             <Card className="bg-white/80 backdrop-blur-sm border-2 border-gray-100 shadow-xl">
               <CardContent className="p-8 text-center">
                 <Star className="h-16 w-16 text-mindgrow-orange mx-auto mb-6" />
-                <h2 className="text-3xl font-black text-gray-900 mb-6">{t('about.vision.title')}</h2>
+                <h2 className="text-3xl font-black text-gray-900 mb-6">{getContent('about.vision.title', t('about.vision.title'))}</h2>
+
                 <p className="text-lg text-gray-600 leading-relaxed">
-                  {t('about.vision.description')}
+                  {getContent('about.vision.description', t('about.vision.description'))}
+
                 </p>
               </CardContent>
             </Card>
@@ -209,10 +244,12 @@ const AboutUs = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-black text-gray-900 mb-4">
-              {t('about.values.title')}
+              {getContent('about.values.title', t('about.values.title'))}
             </h2>
+
             <p className="text-xl text-gray-600">
-              {t('about.values.subtitle')}
+              {getContent('about.values.subtitle', t('about.values.subtitle'))}
+
             </p>
           </div>
 
@@ -241,13 +278,16 @@ const AboutUs = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-black text-gray-900 mb-4">
-              {t('about.features.title')} <ColoredBrandName />
+              {getContent('about.features.title', t('about.features.title'))} <ColoredBrandName />
             </h2>
+
             <p className="text-xl text-gray-600">
-              {t('about.features.subtitle')}
+              {getContent('about.features.subtitle', t('about.features.subtitle'))}
+
             </p>
             <p className="text-lg text-gray-700 mt-4">
-              {t('about.features.description')}
+              {getContent('about.features.description', t('about.features.description'))}
+
             </p>
           </div>
 
@@ -294,12 +334,12 @@ const AboutUs = () => {
             </div>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {team.map((member, index) => (
+              {displayTeam.map((member, index) => (
                 <Card key={member.id || index} className="text-center group hover:shadow-xl transition-all duration-300 transform hover:scale-105 bg-white/80 backdrop-blur-sm border-2 border-gray-100">
                   <CardContent className="p-6">
                     <div className="mb-4 transform group-hover:scale-110 transition-transform duration-300">
                       <img 
-                        src={member.image || member.imageUrl} 
+                        src={member.imageUrl} 
                         alt={member.name}
                         className="w-24 h-24 rounded-full mx-auto object-cover shadow-lg"
                         onError={(e) => {
@@ -309,8 +349,8 @@ const AboutUs = () => {
                       />
                     </div>
                     <h3 className="text-xl font-black text-gray-900 mb-2">{member.name}</h3>
-                    <h4 className="text-lg font-bold text-mindgrow-primary mb-3">{member.role || member.position}</h4>
-                    <p className="text-gray-600 font-medium">{member.description || member.bio}</p>
+                    <h4 className="text-lg font-bold text-mindgrow-primary mb-3">{member.role}</h4>
+                    <p className="text-gray-600 font-medium">{member.description}</p>
                   </CardContent>
                 </Card>
               ))}

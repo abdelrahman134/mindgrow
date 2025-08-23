@@ -9,11 +9,11 @@ import Footer from '@/components/layout/footer';
 import WhatsAppButton from '@/components/ui/whatsapp-button';
 import { useLanguage } from '@/lib/i18n';
 import { useContent } from '@/hooks/useContent';
+import type { ContentItem } from '@shared/schema';
 
 const Contact = () => {
   const { t, dir, language } = useLanguage();
-  const { getContent } = useContent('contact');
-  
+  const { getContent, getFaqs, isLoading: isContentLoading } = useContent('contact');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -23,16 +23,35 @@ const Contact = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Derive FAQs from global content dataset
+  const faqs: ContentItem[] = getFaqs();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     
-    // محاكاة إرسال النموذج
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    alert(getContent('contact.form.success', t('contact.form.success')));
-    setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
-    setIsSubmitting(false);
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        alert(getContent('contact.form.success', t('contact.form.success')));
+        setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
+      } else {
+        const errorData = await response.json();
+        alert(errorData.message || 'حدث خطأ أثناء إرسال الرسالة');
+      }
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      alert('حدث خطأ أثناء إرسال الرسالة');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -46,14 +65,14 @@ const Contact = () => {
     {
       icon: Phone,
       title: getContent('contact.call.us', t('contact.call.us')),
-      value: '+974-6601-8814',
+      value: getContent('contact.phone', '+974-6601-8814'),
       description: getContent('contact.call.desc', t('contact.call.desc')),
       color: 'bg-mindgrow-green'
     },
     {
       icon: Mail,
       title: getContent('contact.email.us', t('contact.email.us')),
-      value: 'support@mindgrow.pro',
+      value: getContent('contact.email.value', 'support@mindgrow.pro'),
       description: getContent('contact.email.desc', t('contact.email.desc')),
       color: 'bg-mindgrow-blue'
     },
@@ -252,42 +271,52 @@ const Contact = () => {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-black text-gray-900 mb-4">
-              {t('contact.faq.title')}
+              {getContent('faq.title', t('contact.faq.title'))}
             </h2>
             <p className="text-xl text-gray-600">
-              {t('contact.faq.subtitle')}
+              {getContent('faq.subtitle', t('contact.faq.subtitle'))}
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-8">
-            <Card className="bg-white/80 backdrop-blur-sm border-2 border-gray-100">
-              <CardContent className="p-6">
-                <h3 className="text-xl font-black text-gray-900 mb-3">{t('contact.faq.q1.title')}</h3>
-                <p className="text-gray-600 font-medium">{t('contact.faq.q1.answer')}</p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white/80 backdrop-blur-sm border-2 border-gray-100">
-              <CardContent className="p-6">
-                <h3 className="text-xl font-black text-gray-900 mb-3">{t('contact.faq.q2.title')}</h3>
-                <p className="text-gray-600 font-medium">{t('contact.faq.q2.answer')}</p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white/80 backdrop-blur-sm border-2 border-gray-100">
-              <CardContent className="p-6">
-                <h3 className="text-xl font-black text-gray-900 mb-3">{t('contact.faq.q3.title')}</h3>
-                <p className="text-gray-600 font-medium">{t('contact.faq.q3.answer')}</p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-white/80 backdrop-blur-sm border-2 border-gray-100">
-              <CardContent className="p-6">
-                <h3 className="text-xl font-black text-gray-900 mb-3">{t('contact.faq.q4.title')}</h3>
-                <p className="text-gray-600 font-medium">{t('contact.faq.q4.answer')}</p>
-              </CardContent>
-            </Card>
-          </div>
+            {isContentLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-pulse text-gray-500">
+                  {language === 'ar' ? 'جارٍ تحميل الأسئلة الشائعة...' : 'Loading FAQs...'}
+                </div>
+              </div>
+            ) : faqs && faqs.length > 0 ? (
+              <div className="grid md:grid-cols-2 gap-6">
+                {faqs.slice(1).map((faq: ContentItem) => ( 
+  <Card 
+    key={faq.id} 
+    className="bg-white/80 backdrop-blur-sm border-2 border-gray-100 hover:shadow-lg transition-shadow duration-300"
+  >
+    <CardContent className="p-6">
+      <div className="flex items-start gap-3">
+        <div className="p-2 bg-mindgrow-primary/10 rounded-full">
+          <MessageSquare className="h-5 w-5 text-mindgrow-primary" />
+        </div>
+        <div className="flex-1">
+          <h3 className="text-xl font-black text-gray-900 mb-3">
+            {language === 'ar' ? (faq.valueAr || faq.key) : (faq.valueEn || faq.key)}
+          </h3>
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+))}
+              </div>
+            ) : (
+            <div className="text-center py-12">
+              <MessageSquare className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 text-lg">
+                {t('contact.faq.no_faqs') || 'لا توجد أسئلة شائعة متاحة في الوقت الحالي.'}
+              </p>
+              <p className="text-sm text-gray-400 mt-2">
+                يمكنك إضافة أسئلة شائعة من لوحة التحكم الإدارية
+              </p>
+            </div>
+          )}
         </div>
       </section>
 

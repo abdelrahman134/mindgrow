@@ -547,23 +547,40 @@ function HeaderManager() {
   };
 
   const togglePageVisibility = (page: string) => {
-    if (!headerSettings?.showPages) return;
-    const pages = typeof headerSettings.showPages === 'string' 
-      ? JSON.parse(headerSettings.showPages) 
-      : headerSettings.showPages;
-    
+    const raw = headerSettings?.showPages || {} as any;
+    const pages = typeof raw === 'string' ? ((): Record<string, boolean> => { try { return JSON.parse(raw); } catch { return {}; } })() : (raw as Record<string, boolean>);
+
     setHeaderSettings({
-      ...headerSettings,
+      ...headerSettings!,
       showPages: {
         ...pages,
-        [page]: !pages[page]
+        [page]: !(pages[page] !== false) // toggle from true->false or false->true, default true
       }
     });
   };
 
-  // Initialize settings when data is loaded
+  // Initialize settings when data is loaded, with safe defaults
   if (settings && !headerSettings && !settingsLoading) {
-    setHeaderSettings(settings);
+    // Parse showPages if it's a JSON string
+    const parsedPages = typeof (settings as any).showPages === 'string'
+      ? ((): Record<string, boolean> => { try { return JSON.parse((settings as any).showPages as any); } catch { return {}; } })()
+      : (((settings as any).showPages as Record<string, boolean> | undefined) || {});
+
+    // Ensure defaults: all pages visible unless explicitly set to false
+    const defaultPages = {
+      home: parsedPages.home !== false,
+      parents: parsedPages.parents !== false,
+      sellers: parsedPages.sellers !== false,
+      teachers: parsedPages.teachers !== false,
+      about: parsedPages.about !== false,
+      contact: parsedPages.contact !== false,
+    };
+
+    setHeaderSettings({
+      ...(settings as any),
+      showPages: defaultPages,
+      showLanguageSwitcher: (settings as any).showLanguageSwitcher ?? true,
+    } as HeaderSettings);
   }
 
   if (settingsLoading || !headerSettings) {
@@ -625,7 +642,7 @@ function HeaderManager() {
               <Label htmlFor={`page-${page.key}`} className="text-sm">{page.label}</Label>
               <Switch
                 id={`page-${page.key}`}
-                checked={pages[page.key] || false}
+                checked={pages[page.key] !== false}
                 onCheckedChange={() => togglePageVisibility(page.key)}
               />
             </div>
@@ -643,8 +660,8 @@ function HeaderManager() {
         </div>
         <Switch
           id="showLanguageSwitcher"
-          checked={headerSettings.showLanguageSwitcher || false}
-          onCheckedChange={(checked) => setHeaderSettings({...headerSettings, showLanguageSwitcher: checked})}
+          checked={headerSettings.showLanguageSwitcher !== false}
+          onCheckedChange={(checked) => setHeaderSettings({...headerSettings!, showLanguageSwitcher: checked})}
         />
       </div>
 
@@ -713,7 +730,9 @@ function FooterManager() {
     mutationFn: (data: Partial<FooterSettings>) => 
       apiRequest('/api/admin/footer-settings', { method: 'PATCH', body: data }),
     onSuccess: () => {
+      // Invalidate both admin and public queries so the live footer updates
       queryClient.invalidateQueries({ queryKey: ['/api/admin/footer-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/footer-settings'] });
       toast({
         title: "تم التحديث بنجاح",
         description: "تم حفظ إعدادات الفوتر بنجاح",
@@ -815,7 +834,7 @@ function FooterManager() {
               <Label htmlFor={`footer-page-${page.key}`} className="text-sm">{page.label}</Label>
               <Switch
                 id={`footer-page-${page.key}`}
-                checked={pages[page.key] || false}
+                checked={pages[page.key] !== false}
                 onCheckedChange={() => togglePageVisibility(page.key)}
               />
             </div>
@@ -833,7 +852,7 @@ function FooterManager() {
         </div>
         <Switch
           id="showSocialLinks"
-          checked={footerSettings.showSocialLinks || false}
+          checked={footerSettings.showSocialLinks !== false}
           onCheckedChange={(checked) => setFooterSettings({...footerSettings, showSocialLinks: checked})}
         />
       </div>
@@ -1043,7 +1062,7 @@ function TeamManager() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Users className="h-6 w-6 text-blue-600" />
-          <h3 className="text-lg font-bold text-gray-900">إدارة أعضاء الفريق</h3>
+          <h3 className="text-lg font-bold text-gray-900">إدارة الفريق</h3>
         </div>
         <Button 
           onClick={() => setIsCreating(true)}
@@ -2022,6 +2041,368 @@ function UsersManager() {
 }
 import { useLocation } from 'wouter';
 
+// FAQ Manager Component
+function FAQManager() {
+  const [editingFAQ, setEditingFAQ] = useState<ContentItem | null>(null);
+  const [faqData, setFaqData] = useState<Partial<InsertContentItem>>({
+    key: '',
+    type: 'text',
+    valueAr: '',
+    valueEn: '',
+    category: 'faq',
+    page: 'faq',
+    description: ''
+  });
+  const [isCreating, setIsCreating] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Fetch FAQ content
+  const { data: faqs = [], isLoading } = useQuery({
+    queryKey: ['/api/admin/content?page=faq'],
+    retry: false,
+  });
+
+  const createFAQMutation = useMutation({
+    mutationFn: (data: InsertContentItem) => 
+      apiRequest('/api/admin/content', { method: 'POST', body: data }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/content'] });
+      setIsCreating(false);
+      setFaqData({ key: '', type: 'text', valueAr: '', valueEn: '', category: 'faq', page: 'faq', description: '' });
+      toast({
+        title: "تم إنشاء السؤال بنجاح",
+        description: "تم إضافة سؤال جديد للأسئلة الشائعة",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "خطأ في الإنشاء",
+        description: "حدث خطأ أثناء إضافة السؤال",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateFAQMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<ContentItem> }) => 
+      apiRequest(`/api/admin/content/${id}`, { method: 'PATCH', body: data }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/content'] });
+      setEditingFAQ(null);
+      toast({
+        title: "تم التحديث بنجاح",
+        description: "تم حفظ السؤال بنجاح",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "خطأ في التحديث",
+        description: "حدث خطأ أثناء تحديث السؤال",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteFAQMutation = useMutation({
+    mutationFn: (id: number) => 
+      apiRequest(`/api/admin/content/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/content'] });
+      toast({
+        title: "تم الحذف بنجاح",
+        description: "تم حذف السؤال بنجاح",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "خطأ في الحذف",
+        description: "حدث خطأ أثناء حذف السؤال",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleEdit = (faq: ContentItem) => {
+    setEditingFAQ(faq);
+    setFaqData({
+      key: faq.key,
+      type: faq.type,
+      valueAr: faq.valueAr || '',
+      valueEn: faq.valueEn || '',
+      category: faq.category,
+      page: faq.page,
+      description: faq.description || ''
+    });
+  };
+
+  const handleSave = () => {
+    if (editingFAQ) {
+      updateFAQMutation.mutate({ id: editingFAQ.id, data: faqData });
+    } else if (isCreating) {
+      createFAQMutation.mutate(faqData as InsertContentItem);
+    }
+  };
+
+  const handleCancel = () => {
+    setEditingFAQ(null);
+    setIsCreating(false);
+    setFaqData({ key: '', type: 'text', valueAr: '', valueEn: '', category: 'faq', page: 'faq', description: '' });
+  };
+
+  const createSampleFAQs = async () => {
+    const sampleFAQs = [
+      {
+        key: 'faq.question.1',
+        type: 'text',
+        valueAr: 'كيف يمكنني التسجيل في التطبيق؟',
+        valueEn: 'How can I register for the app?',
+        category: 'faq',
+        page: 'faq',
+        description: 'سؤال حول عملية التسجيل في التطبيق'
+      },
+      {
+        key: 'faq.question.2',
+        type: 'text',
+        valueAr: 'ما هي المميزات الرئيسية للتطبيق؟',
+        valueEn: 'What are the main features of the app?',
+        category: 'faq',
+        page: 'faq',
+        description: 'سؤال حول مميزات التطبيق'
+      },
+      {
+        key: 'faq.question.3',
+        type: 'text',
+        valueAr: 'كيف يمكنني التواصل مع الدعم الفني؟',
+        valueEn: 'How can I contact technical support?',
+        category: 'faq',
+        page: 'faq',
+        description: 'سؤال حول التواصل مع الدعم الفني'
+      }
+    ];
+
+    try {
+      for (const faq of sampleFAQs) {
+        await createFAQMutation.mutateAsync(faq as InsertContentItem);
+      }
+      toast({
+        title: "تم إنشاء الأسئلة التجريبية بنجاح",
+        description: "تم إضافة 3 أسئلة شائعة تجريبية",
+      });
+    } catch (error) {
+      toast({
+        title: "خطأ في إنشاء الأسئلة التجريبية",
+        description: "حدث خطأ أثناء إنشاء الأسئلة التجريبية",
+        variant: "destructive",
+      });
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <MessageSquare className="h-6 w-6 text-blue-600" />
+          <h3 className="text-lg font-bold text-gray-900">إدارة الأسئلة الشائعة</h3>
+        </div>
+        <Button 
+          onClick={() => setIsCreating(true)}
+          className="flex items-center gap-2"
+          disabled={isCreating}
+        >
+          <Plus className="h-4 w-4" />
+          إضافة سؤال جديد
+        </Button>
+      </div>
+
+      {/* Create/Edit Form */}
+      {(editingFAQ || isCreating) && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-lg font-semibold">
+                {editingFAQ ? 'تعديل السؤال' : 'إضافة سؤال جديد'}
+              </h4>
+              <Button variant="ghost" size="sm" onClick={handleCancel}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="faqKey">مفتاح السؤال *</Label>
+                <Input
+                  id="faqKey"
+                  value={faqData.key || ''}
+                  onChange={(e) => setFaqData({...faqData, key: e.target.value})}
+                  placeholder="faq.question.1"
+                  dir="ltr"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="faqType">نوع المحتوى</Label>
+                <Select 
+                  value={faqData.type || 'text'} 
+                  onValueChange={(value) => setFaqData({...faqData, type: value as any})}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="text">نص</SelectItem>
+                    <SelectItem value="title">عنوان</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="faqDescription">وصف السؤال</Label>
+                <Textarea
+                  id="faqDescription"
+                  value={faqData.description || ''}
+                  onChange={(e) => setFaqData({...faqData, description: e.target.value})}
+                  placeholder="وصف مختصر للسؤال..."
+                  rows={2}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="faqValueAr">السؤال (عربي) *</Label>
+                <Textarea
+                  id="faqValueAr"
+                  value={faqData.valueAr || ''}
+                  onChange={(e) => setFaqData({...faqData, valueAr: e.target.value})}
+                  placeholder="اكتب السؤال باللغة العربية..."
+                  rows={3}
+                  dir="rtl"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="faqValueEn">السؤال (إنجليزي) *</Label>
+                <Textarea
+                  id="faqValueEn"
+                  value={faqData.valueEn || ''}
+                  onChange={(e) => setFaqData({...faqData, valueEn: e.target.value})}
+                  placeholder="Write the question in English..."
+                  rows={3}
+                  dir="ltr"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 mt-6">
+              <Button variant="outline" onClick={handleCancel}>
+                إلغاء
+              </Button>
+              <Button 
+                onClick={handleSave}
+                disabled={!faqData.key || !faqData.valueAr || !faqData.valueEn || createFAQMutation.isPending || updateFAQMutation.isPending}
+              >
+                <Save className="h-4 w-4 ml-1" />
+                {editingFAQ ? 'حفظ التغييرات' : 'إضافة السؤال'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* FAQ List */}
+      <div className="space-y-4">
+        {faqs.map((faq: ContentItem) => (
+          <Card key={faq.id} className="group hover:shadow-lg transition-all duration-200">
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <MessageSquare className="h-4 w-4 text-blue-600" />
+                    <span className="font-medium text-sm text-gray-600" dir="ltr">
+                      {faq.key}
+                    </span>
+                    <Badge variant="outline" className="text-xs">
+                      {faq.type}
+                    </Badge>
+                  </div>
+                  
+                  {faq.description && (
+                    <p className="text-sm text-gray-500 mb-3">{faq.description}</p>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-xs font-medium text-gray-500">العربية:</span>
+                      <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded border mt-1" dir="rtl">
+                        {faq.valueAr || 'لا يوجد محتوى عربي'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-xs font-medium text-gray-500">English:</span>
+                      <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded border mt-1" dir="ltr">
+                        {faq.valueEn || 'No English content'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleEdit(faq)}
+                    className="h-8 w-8 p-0"
+                  >
+                    <Edit className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => deleteFAQMutation.mutate(faq.id)}
+                    className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {faqs.length === 0 && !isCreating && (
+        <div className="text-center py-12 bg-gray-50 rounded-lg">
+          <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">لا توجد أسئلة شائعة</h3>
+          <p className="text-gray-500 mb-4">ابدأ بإضافة أسئلة للأسئلة الشائعة</p>
+          <div className="flex gap-3 justify-center">
+            <Button onClick={() => setIsCreating(true)}>
+              <Plus className="h-4 w-4 ml-1" />
+              إضافة سؤال جديد
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => createSampleFAQs()}
+              className="border-green-300 text-green-700 hover:bg-green-50"
+            >
+              <Sparkles className="h-4 w-4 ml-1" />
+              إنشاء أسئلة تجريبية
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const [selectedContact, setSelectedContact] = useState<ContactSubmission | null>(null);
   const [replyNotes, setReplyNotes] = useState("");
@@ -2166,8 +2547,8 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        <Tabs defaultValue="content" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+        <Tabs defaultValue="content" className="space-y-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="content" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
               إدارة المحتوى
@@ -2189,6 +2570,10 @@ export default function AdminDashboard() {
               <Users className="h-4 w-4" />
               إدارة الفريق
             </TabsTrigger>
+            {/* <TabsTrigger value="faq" className="flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" />
+              الأسئلة الشائعة
+            </TabsTrigger> */}
             <TabsTrigger value="users" className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
               إدارة المستخدمين
@@ -2512,6 +2897,23 @@ export default function AdminDashboard() {
           {/* Users Management */}
           <TabsContent value="users">
             <UsersManager />
+          </TabsContent>
+
+          <TabsContent value="faq">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5" />
+                  إدارة الأسئلة الشائعة
+                </CardTitle>
+                <CardDescription>
+                  إضافة وتعديل وحذف الأسئلة الشائعة المعروضة في صفحة التواصل
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <FAQManager />
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

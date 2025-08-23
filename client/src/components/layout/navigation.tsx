@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+
 import { Menu, X, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LanguageSwitcher } from '@/components/ui/language-switcher';
@@ -67,14 +69,37 @@ const Navigation = () => {
     }
   };
 
-  const navItems = [
-    { href: '/', label: t('nav.children'), isActive: location === '/' },
-    { href: '/parents', label: t('nav.parents'), isActive: location === '/parents' },
-    { href: '/sellers', label: t('nav.sellers'), isActive: location === '/sellers' },
-    { href: '/teachers', label: t('nav.teachers'), isActive: location === '/teachers' },
-    { href: '/about-us', label: t('nav.about'), isActive: location === '/about-us' },
-    { href: '/contact', label: t('nav.contact'), isActive: location === '/contact' }
+  // Fetch public header settings to control visibility
+  const { data: headerSettings } = useQuery({
+    queryKey: ['/api/header-settings'],
+    queryFn: async () => {
+      const res = await fetch('/api/header-settings');
+      if (!res.ok) throw new Error('Failed to load header settings');
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+
+  // Parse showPages map (may be JSON string in DB)
+  const rawShowPages = (headerSettings?.showPages ?? {}) as any;
+  let showPages: Record<string, boolean> = {};
+  if (typeof rawShowPages === 'string') {
+    try { showPages = JSON.parse(rawShowPages); } catch { showPages = {}; }
+  } else if (rawShowPages && typeof rawShowPages === 'object') {
+    showPages = rawShowPages as Record<string, boolean>;
+  }
+
+  const allNavItems = [
+    { key: 'home', href: '/', label: t('nav.children'), isActive: location === '/' },
+    { key: 'parents', href: '/parents', label: t('nav.parents'), isActive: location === '/parents' },
+    { key: 'sellers', href: '/sellers', label: t('nav.sellers'), isActive: location === '/sellers' },
+    { key: 'teachers', href: '/teachers', label: t('nav.teachers'), isActive: location === '/teachers' },
+    { key: 'about', href: '/about-us', label: t('nav.about'), isActive: location === '/about-us' },
+    { key: 'contact', href: '/contact', label: t('nav.contact'), isActive: location === '/contact' }
   ];
+
+  // Default to visible unless explicitly set to false
+  const navItems = allNavItems.filter(item => showPages[item.key] !== false);
 
   return (
     <nav className="bg-white shadow-lg sticky top-0 z-50" dir={dir}>
@@ -106,7 +131,9 @@ const Navigation = () => {
             ))}
             
             {/* Language Switcher */}
-            <LanguageSwitcher />
+            {headerSettings?.showLanguageSwitcher !== false && (
+              <LanguageSwitcher />
+            )}
             
             {/* Download Icon for all screen sizes */}
             <Button 
@@ -149,9 +176,11 @@ const Navigation = () => {
               ))}
               
               {/* Mobile Language Switcher */}
-              <div className="flex justify-center pt-2 pb-2">
-                <LanguageSwitcher />
-              </div>
+              {headerSettings?.showLanguageSwitcher !== false && (
+                <div className="flex justify-center pt-2 pb-2">
+                  <LanguageSwitcher />
+                </div>
+              )}
               
               <Button 
                 onClick={handleDownloadApp}
